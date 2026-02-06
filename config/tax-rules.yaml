@@ -1,0 +1,40 @@
+# กฎภาษี - แก้ไขได้ตามต้องการ
+
+vat:
+  rate: 7
+  label: "ภาษีมูลค่าเพิ่ม (VAT)"
+  description: "VAT 7% คำนวณจาก Subtotal"
+
+# ภาษีหัก ณ ที่จ่าย (WHT) - คำนวณจาก Subtotal ก่อน VAT
+wht:
+  calculation_base: "before_vat"  # WHT คำนวณจาก Subtotal (ก่อน VAT)
+  types:
+    - code: "service"
+      label: "ค่าบริการ"
+      rate: 3
+      description: "ค่าจ้างทำของ/ค่าบริการ หัก 3%"
+
+    - code: "rent"
+      label: "ค่าเช่า"
+      rate: 5
+      description: "ค่าเช่าทรัพย์สิน หัก 5%"
+
+    - code: "transport"
+      label: "ค่าขนส่ง"
+      rate: 1
+      description: "ค่าขนส่งสินค้า หัก 1%"
+
+    - code: "none"
+      label: "ไม่หัก WHT"
+      rate: 0
+      description: "ไม่มีการหักภาษี ณ ที่จ่าย"
+
+# สูตรคำนวณ:
+# WHT = Subtotal × WHT Rate
+# VAT = Subtotal × VAT Rate
+# Net Payable = Subtotal + VAT - WHT
+formula:
+  description: |
+    1. WHT = Subtotal × WHT Rate (คำนวณจาก Subtotal ก่อน VAT)
+    2. VAT = Subtotal × VAT Rate
+    3. Net Payable = Subtotal + VAT - WHT

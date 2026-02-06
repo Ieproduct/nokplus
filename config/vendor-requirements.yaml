@@ -1,0 +1,88 @@
+# ข้อกำหนดผู้ขาย - แก้ไขได้ตามต้องการ
+
+# เอกสารที่ต้องมีสำหรับผู้ขาย
+vendor_documents:
+  - code: "pp20"
+    name: "ภพ.20 (ใบทะเบียนภาษีมูลค่าเพิ่ม)"
+    required: true
+    description: "เอกสารยืนยันการจดทะเบียนภาษีมูลค่าเพิ่ม"
+
+  - code: "company_cert"
+    name: "หนังสือรับรองบริษัท"
+    required: true
+    description: "หนังสือรับรองการจดทะเบียนนิติบุคคล (ไม่เกิน 3 เดือน)"
+
+  - code: "bank_account"
+    name: "สำเนาหน้าบัญชีธนาคาร"
+    required: true
+    description: "สำเนาหน้าบัญชีธนาคารสำหรับรับโอนเงิน"
+
+  - code: "id_copy"
+    name: "สำเนาบัตรประชาชนผู้มีอำนาจ"
+    required: false
+    description: "สำเนาบัตรประชาชนกรรมการผู้มีอำนาจลงนาม"
+
+  - code: "vat_cert"
+    name: "ใบทะเบียนพาณิชย์"
+    required: false
+    description: "ใบทะเบียนพาณิชย์ (ถ้ามี)"
+
+# AP Checklist - รายการตรวจสอบก่อนจ่ายเงิน
+ap_checklist:
+  - code: "invoice_original"
+    name: "ใบแจ้งหนี้/ใบกำกับภาษีตัวจริง"
+    required: true
+    order: 1
+
+  - code: "po_copy"
+    name: "สำเนาใบสั่งซื้อ (PO)"
+    required: true
+    order: 2
+
+  - code: "delivery_note"
+    name: "ใบส่งของ/ใบรับของ"
+    required: true
+    order: 3
+
+  - code: "inspection_report"
+    name: "ใบตรวจรับ"
+    required: true
+    order: 4
+
+  - code: "tax_invoice"
+    name: "ใบกำกับภาษี"
+    required: true
+    order: 5
+
+  - code: "wht_cert"
+    name: "หนังสือรับรองการหักภาษี ณ ที่จ่าย"
+    required: false
+    order: 6
+
+  - code: "receipt"
+    name: "ใบเสร็จรับเงิน"
+    required: false
+    order: 7
+
+  - code: "approval_doc"
+    name: "เอกสารอนุมัติ"
+    required: true
+    order: 8
+
+# สถานะผู้ขาย
+vendor_statuses:
+  - code: "pending"
+    name: "รอตรวจสอบ"
+    color: "yellow"
+
+  - code: "approved"
+    name: "อนุมัติแล้ว"
+    color: "green"
+
+  - code: "suspended"
+    name: "ระงับชั่วคราว"
+    color: "red"
+
+  - code: "blacklisted"
+    name: "ขึ้นบัญชีดำ"
+    color: "gray"

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ใบขอซื้อ - {{document_number}}</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none; }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Noto Sans Thai', sans-serif; font-size: 12px; color: #333; line-height: 1.5; }
+    .document { max-width: 210mm; margin: 0 auto; padding: 15mm; }
+    .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
+    .company-name { font-size: 18px; font-weight: 700; }
+    .company-name-en { font-size: 12px; color: #666; }
+    .company-address { font-size: 10px; color: #666; margin-top: 4px; }
+    .doc-title { font-size: 16px; font-weight: 700; margin-top: 8px; }
+    .doc-title-en { font-size: 11px; color: #666; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+    .info-item { display: flex; gap: 8px; }
+    .info-label { font-weight: 600; min-width: 100px; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+    th { background: #f5f5f5; font-weight: 600; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .totals { margin-left: auto; width: 280px; }
+    .totals tr td { border: none; padding: 3px 8px; }
+    .totals .total-row { font-weight: 700; font-size: 14px; border-top: 2px solid #333; }
+    .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 40px; }
+    .sig-box { text-align: center; }
+    .sig-line { border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; }
+    .sig-title { font-size: 10px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="document">
+    <div class="header">
+      <div class="company-name">{{company_name_th}}</div>
+      <div class="company-name-en">{{company_name_en}}</div>
+      <div class="company-address">{{company_address}}</div>
+      <div class="company-address">โทร: {{company_phone}} | Tax ID: {{company_tax_id}}</div>
+      <div class="doc-title">ใบขอซื้อ</div>
+      <div class="doc-title-en">Purchase Requisition</div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">เลขที่เอกสาร:</span>
+        <span>{{document_number}}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">วันที่:</span>
+        <span>{{requested_date}}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">ชื่อเรื่อง:</span>
+        <span>{{title}}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">วันที่ต้องการ:</span>
+        <span>{{required_date}}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">แผนก:</span>
+        <span>{{department}}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Cost Center:</span>
+        <span>{{cost_center}}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">ผู้ขอ:</span>
+        <span>{{requested_by}}</span>
+      </div>
+    </div>
+
+    {{#if description}}
+    <p><strong>รายละเอียด:</strong> {{description}}</p>
+    {{/if}}
+
+    <table>
+      <thead>
+        <tr>
+          <th class="text-center" style="width:40px">ลำดับ</th>
+          <th>รายละเอียด</th>
+          <th class="text-center" style="width:60px">จำนวน</th>
+          <th class="text-center" style="width:60px">หน่วย</th>
+          <th class="text-right" style="width:100px">ราคา/หน่วย</th>
+          <th class="text-right" style="width:100px">จำนวนเงิน</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each items}}
+        <tr>
+          <td class="text-center">{{line_number}}</td>
+          <td>{{description}}</td>
+          <td class="text-center">{{quantity}}</td>
+          <td class="text-center">{{unit}}</td>
+          <td class="text-right">{{unit_price}}</td>
+          <td class="text-right">{{amount}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <table class="totals">
+      <tr>
+        <td>รวมก่อน VAT</td>
+        <td class="text-right">{{subtotal}}</td>
+      </tr>
+      <tr>
+        <td>VAT 7%</td>
+        <td class="text-right">{{vat_amount}}</td>
+      </tr>
+      <tr class="total-row">
+        <td>รวมทั้งสิ้น</td>
+        <td class="text-right">{{total_amount}}</td>
+      </tr>
+    </table>
+
+    {{#if notes}}
+    <p><strong>หมายเหตุ:</strong> {{notes}}</p>
+    {{/if}}
+
+    <div class="signatures">
+      <div class="sig-box">
+        <div class="sig-line">ผู้ขอซื้อ</div>
+        <div class="sig-title">วันที่: ....../....../......</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-line">ผู้ตรวจสอบ</div>
+        <div class="sig-title">วันที่: ....../....../......</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-line">ผู้อนุมัติ</div>
+        <div class="sig-title">วันที่: ....../....../......</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

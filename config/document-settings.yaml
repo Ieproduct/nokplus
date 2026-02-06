@@ -1,0 +1,71 @@
+# ตั้งค่าเอกสาร - แก้ไขได้ตามต้องการ
+
+# รูปแบบเลขที่เอกสาร: PREFIX-พ.ศ.-RUNNING_NUMBER
+document_numbering:
+  pr:
+    prefix: "PR"
+    format: "PR-{buddhist_year}-{running:4}"
+    description: "เลขที่ใบขอซื้อ เช่น PR-2569-0001"
+
+  po:
+    prefix: "PO"
+    format: "PO-{buddhist_year}-{running:4}"
+    description: "เลขที่ใบสั่งซื้อ เช่น PO-2569-0001"
+
+  ap:
+    prefix: "AP"
+    format: "AP-{buddhist_year}-{running:4}"
+    description: "เลขที่ใบสำคัญจ่าย เช่น AP-2569-0001"
+
+# หน่วยนับ
+units:
+  - code: "PCS"
+    name: "ชิ้น"
+  - code: "SET"
+    name: "ชุด"
+  - code: "BOX"
+    name: "กล่อง"
+  - code: "PKG"
+    name: "แพ็ค"
+  - code: "ROLL"
+    name: "ม้วน"
+  - code: "MTR"
+    name: "เมตร"
+  - code: "KG"
+    name: "กิโลกรัม"
+  - code: "LTR"
+    name: "ลิตร"
+  - code: "HR"
+    name: "ชั่วโมง"
+  - code: "DAY"
+    name: "วัน"
+  - code: "MONTH"
+    name: "เดือน"
+  - code: "JOB"
+    name: "งาน"
+  - code: "LOT"
+    name: "ล็อต"
+  - code: "REAM"
+    name: "รีม"
+
+# เงื่อนไขการชำระเงิน
+payment_terms:
+  - code: "CASH"
+    name: "เงินสด"
+    days: 0
+
+  - code: "NET30"
+    name: "เครดิต 30 วัน"
+    days: 30
+
+  - code: "NET45"
+    name: "เครดิต 45 วัน"
+    days: 45
+
+  - code: "NET60"
+    name: "เครดิต 60 วัน"
+    days: 60
+
+  - code: "NET90"
+    name: "เครดิต 90 วัน"
+    days: 90
