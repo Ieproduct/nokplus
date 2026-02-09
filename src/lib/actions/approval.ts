@@ -17,6 +17,7 @@ export async function getPendingApprovals() {
     .from("approvals")
     .select("*, profiles!approvals_approver_id_fkey(full_name)")
     .eq("company_id", companyId)
+    .eq("approver_id", user.id)
     .is("action", null)
     .order("created_at", { ascending: true });
 
@@ -230,6 +231,11 @@ export async function submitDocumentForApproval(
 
 export async function getDashboardStats() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
   const companyId = await getActiveCompanyId();
 
   const [prResult, poResult, apResult, pendingApprovalsResult] =
@@ -250,6 +256,7 @@ export async function getDashboardStats() {
         .from("approvals")
         .select("id", { count: "exact" })
         .eq("company_id", companyId)
+        .eq("approver_id", user.id)
         .is("action", null),
     ]);
 
