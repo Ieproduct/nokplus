@@ -28,11 +28,19 @@ import {
 import { Save, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+export interface FlowUser {
+  id: string;
+  full_name: string;
+  email: string;
+  position: string;
+}
+
 interface FlowBuilderProps {
   flowId: string;
   flowName: string;
   initialNodes: Node[];
   initialEdges: Edge[];
+  users?: FlowUser[];
 }
 
 export function FlowBuilder({
@@ -40,23 +48,101 @@ export function FlowBuilder({
   flowName,
   initialNodes,
   initialEdges,
+  users = [],
 }: FlowBuilderProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [saving, setSaving] = useState(false);
+
+  // Add node dialog state
   const [addNodeOpen, setAddNodeOpen] = useState(false);
   const [newNodeType, setNewNodeType] = useState<string>("approver");
   const [newNodeLabel, setNewNodeLabel] = useState("");
   const [newNodeLevel, setNewNodeLevel] = useState("");
   const [newNodeMaxAmount, setNewNodeMaxAmount] = useState("");
+  const [newNodeUserId, setNewNodeUserId] = useState("");
   const [newConditionField, setNewConditionField] = useState("total_amount");
   const [newConditionOp, setNewConditionOp] = useState(">");
   const [newConditionValue, setNewConditionValue] = useState("");
+
+  // Edit node dialog state
+  const [editNodeOpen, setEditNodeOpen] = useState(false);
+  const [editingNode, setEditingNode] = useState<Node | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editUserId, setEditUserId] = useState("");
+  const [editLevel, setEditLevel] = useState("");
+  const [editMaxAmount, setEditMaxAmount] = useState("");
+  const [editConditionField, setEditConditionField] = useState("total_amount");
+  const [editConditionOp, setEditConditionOp] = useState(">");
+  const [editConditionValue, setEditConditionValue] = useState("");
 
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
     [setEdges]
   );
+
+  function handleNodeDoubleClick(_event: React.MouseEvent, node: Node) {
+    if (node.type === "start" || node.type === "end") return;
+
+    const data = node.data as Record<string, unknown>;
+    const config = (data.config || {}) as Record<string, unknown>;
+
+    setEditingNode(node);
+    setEditLabel((data.label as string) || "");
+    setEditUserId((data.user_id as string) || "");
+
+    if (node.type === "approver") {
+      setEditLevel(config.approval_level ? String(config.approval_level) : "");
+      setEditMaxAmount(config.max_amount ? String(config.max_amount) : "");
+    } else if (node.type === "condition") {
+      setEditConditionField((config.field as string) || "total_amount");
+      setEditConditionOp((config.operator as string) || ">");
+      setEditConditionValue(config.value ? String(config.value) : "");
+    }
+
+    setEditNodeOpen(true);
+  }
+
+  function handleEditSave() {
+    if (!editingNode) return;
+
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id !== editingNode.id) return n;
+
+        const newData: Record<string, unknown> = {
+          ...(n.data as Record<string, unknown>),
+          label: editLabel,
+        };
+
+        if (n.type === "approver") {
+          newData.user_id = editUserId || null;
+          newData.config = {
+            approval_level: editLevel ? parseInt(editLevel) : undefined,
+            max_amount: editMaxAmount ? parseInt(editMaxAmount) : null,
+          };
+          // Store user name for display
+          if (editUserId) {
+            const user = users.find((u) => u.id === editUserId);
+            newData.user_name = user?.full_name || "";
+          } else {
+            newData.user_name = "";
+          }
+        } else if (n.type === "condition") {
+          newData.config = {
+            field: editConditionField,
+            operator: editConditionOp,
+            value: editConditionValue ? parseInt(editConditionValue) : 0,
+          };
+        }
+
+        return { ...n, data: newData };
+      })
+    );
+
+    setEditNodeOpen(false);
+    setEditingNode(null);
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -94,10 +180,15 @@ export function FlowBuilder({
     let data: Record<string, unknown> = { label: newNodeLabel };
 
     if (newNodeType === "approver") {
+      data.user_id = newNodeUserId || null;
       data.config = {
         approval_level: newNodeLevel ? parseInt(newNodeLevel) : undefined,
         max_amount: newNodeMaxAmount ? parseInt(newNodeMaxAmount) : null,
       };
+      if (newNodeUserId) {
+        const user = users.find((u) => u.id === newNodeUserId);
+        data.user_name = user?.full_name || "";
+      }
     } else if (newNodeType === "condition") {
       data.config = {
         field: newConditionField,
@@ -118,6 +209,7 @@ export function FlowBuilder({
     setNewNodeLabel("");
     setNewNodeLevel("");
     setNewNodeMaxAmount("");
+    setNewNodeUserId("");
     setNewConditionValue("");
   }
 
@@ -126,7 +218,7 @@ export function FlowBuilder({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold">{flowName}</h1>
-          <p className="text-sm text-muted-foreground">ลากเส้นเชื่อม node เพื่อสร้างลำดับการอนุมัติ</p>
+          <p className="text-sm text-muted-foreground">ดับเบิลคลิก node เพื่อแก้ไข / ลากเส้นเชื่อมเพื่อสร้างลำดับ</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setAddNodeOpen(true)}>
@@ -145,6 +237,7 @@ export function FlowBuilder({
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeDoubleClick={handleNodeDoubleClick}
           nodeTypes={nodeTypes}
           fitView
           deleteKeyCode="Delete"
@@ -154,6 +247,7 @@ export function FlowBuilder({
         </ReactFlow>
       </div>
 
+      {/* Add Node Dialog */}
       <Dialog open={addNodeOpen} onOpenChange={setAddNodeOpen}>
         <DialogContent>
           <DialogHeader>
@@ -179,6 +273,22 @@ export function FlowBuilder({
 
             {newNodeType === "approver" && (
               <>
+                <div>
+                  <Label>ผู้อนุมัติ</Label>
+                  <Select value={newNodeUserId} onValueChange={setNewNodeUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="เลือกผู้อนุมัติ (หรือใช้ Level)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">-- ไม่ระบุ (ใช้ Level แทน) --</SelectItem>
+                      {users.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.full_name} ({u.position || u.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div>
                   <Label>Approval Level</Label>
                   <Input type="number" value={newNodeLevel} onChange={(e) => setNewNodeLevel(e.target.value)} placeholder="1, 2, 3..." />
@@ -223,6 +333,87 @@ export function FlowBuilder({
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setAddNodeOpen(false)}>ยกเลิก</Button>
               <Button onClick={handleAddNode} disabled={!newNodeLabel}>เพิ่ม</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Node Dialog */}
+      <Dialog open={editNodeOpen} onOpenChange={setEditNodeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              แก้ไข {editingNode?.type === "approver" ? "ผู้อนุมัติ" : "เงื่อนไข"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>ชื่อ</Label>
+              <Input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} />
+            </div>
+
+            {editingNode?.type === "approver" && (
+              <>
+                <div>
+                  <Label>ผู้อนุมัติ</Label>
+                  <Select value={editUserId || "__none__"} onValueChange={(v) => setEditUserId(v === "__none__" ? "" : v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="เลือกผู้อนุมัติ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">-- ไม่ระบุ (ใช้ Level แทน) --</SelectItem>
+                      {users.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.full_name} ({u.position || u.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Approval Level</Label>
+                  <Input type="number" value={editLevel} onChange={(e) => setEditLevel(e.target.value)} placeholder="1, 2, 3..." />
+                </div>
+                <div>
+                  <Label>วงเงินสูงสุด (บาท)</Label>
+                  <Input type="number" value={editMaxAmount} onChange={(e) => setEditMaxAmount(e.target.value)} placeholder="ว่างไว้ = ไม่จำกัด" />
+                </div>
+              </>
+            )}
+
+            {editingNode?.type === "condition" && (
+              <>
+                <div>
+                  <Label>เงื่อนไข</Label>
+                  <div className="flex gap-2">
+                    <Select value={editConditionField} onValueChange={setEditConditionField}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="total_amount">ยอดรวม</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={editConditionOp} onValueChange={setEditConditionOp}>
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value=">">&gt;</SelectItem>
+                        <SelectItem value=">=">&gt;=</SelectItem>
+                        <SelectItem value="<">&lt;</SelectItem>
+                        <SelectItem value="<=">&lt;=</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input type="number" value={editConditionValue} onChange={(e) => setEditConditionValue(e.target.value)} placeholder="จำนวน" />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditNodeOpen(false)}>ยกเลิก</Button>
+              <Button onClick={handleEditSave} disabled={!editLabel}>บันทึก</Button>
             </div>
           </div>
         </DialogContent>

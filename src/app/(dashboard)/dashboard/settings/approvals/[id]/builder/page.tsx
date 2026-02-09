@@ -1,4 +1,5 @@
 import { getApprovalFlow } from "@/lib/actions/flow";
+import { getCompanyMembers } from "@/lib/actions/company";
 import { FlowBuilder } from "@/components/flow-builder/flow-builder";
 import { notFound } from "next/navigation";
 import type { Node, Edge } from "@xyflow/react";
@@ -16,6 +17,24 @@ export default async function FlowBuilderPage({
   } catch {
     notFound();
   }
+
+  // Fetch company members for user selection
+  const members = await getCompanyMembers();
+  const users = members.map((m) => ({
+    id: m.user_id,
+    full_name: (m as Record<string, unknown>).profiles
+      ? ((m as Record<string, unknown>).profiles as Record<string, unknown>)
+          .full_name as string
+      : "",
+    email: (m as Record<string, unknown>).profiles
+      ? ((m as Record<string, unknown>).profiles as Record<string, unknown>)
+          .email as string
+      : "",
+    position: (m as Record<string, unknown>).profiles
+      ? ((m as Record<string, unknown>).profiles as Record<string, unknown>)
+          .position as string
+      : "",
+  }));
 
   // Convert DB nodes/edges to React Flow format
   const initialNodes: Node[] = flowData.nodes.map((n) => ({
@@ -45,6 +64,7 @@ export default async function FlowBuilderPage({
       flowName={flowData.flow.name}
       initialNodes={initialNodes}
       initialEdges={initialEdges}
+      users={users}
     />
   );
 }
