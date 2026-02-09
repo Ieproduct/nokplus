@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Save, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 interface VendorFormProps {
@@ -66,11 +66,11 @@ export function VendorForm({ vendor, paymentTerms }: VendorFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>ข้อมูลทั่วไป</CardTitle>
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="bg-linear-to-r from-nok-navy to-nok-blue text-white">
+          <CardTitle className="text-white">ข้อมูลทั่วไป</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid gap-4 md:grid-cols-2 pt-6">
           <div className="space-y-2">
             <Label htmlFor="code">รหัสผู้ขาย *</Label>
             <Input
@@ -173,11 +173,11 @@ export function VendorForm({ vendor, paymentTerms }: VendorFormProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>ข้อมูลธนาคาร</CardTitle>
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="bg-linear-to-r from-nok-navy to-nok-blue text-white">
+          <CardTitle className="text-white">ข้อมูลธนาคาร</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
+        <CardContent className="grid gap-4 md:grid-cols-3 pt-6">
           <div className="space-y-2">
             <Label htmlFor="bank_name">ธนาคาร</Label>
             <Input
@@ -208,12 +208,12 @@ export function VendorForm({ vendor, paymentTerms }: VendorFormProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>เอกสารผู้ขาย</CardTitle>
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="bg-amber-50 border-b border-amber-100">
+          <CardTitle className="text-nok-navy">เอกสารผู้ขาย</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+        <CardContent className="pt-4">
+          <div className="grid gap-3 md:grid-cols-2">
             {[
               { name: "has_pp20", label: "ภพ.20 (ใบทะเบียนภาษีมูลค่าเพิ่ม)", checked: vendor?.has_pp20 },
               { name: "has_company_cert", label: "หนังสือรับรองบริษัท", checked: vendor?.has_company_cert },
@@ -221,23 +221,25 @@ export function VendorForm({ vendor, paymentTerms }: VendorFormProps) {
               { name: "has_id_copy", label: "สำเนาบัตรประชาชนผู้มีอำนาจ", checked: vendor?.has_id_copy },
               { name: "has_vat_cert", label: "ใบทะเบียนพาณิชย์", checked: vendor?.has_vat_cert },
             ].map((doc) => (
-              <label key={doc.name} className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted">
+              <label key={doc.name} className={`flex items-center gap-3 rounded-xl border-2 p-3.5 cursor-pointer transition-all duration-200 ${
+                doc.checked ? "bg-green-50 border-green-300" : "hover:bg-muted border-transparent bg-muted/30"
+              }`}>
                 <input
                   type="checkbox"
                   name={doc.name}
                   defaultChecked={doc.checked || false}
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="h-4 w-4 rounded border-gray-300 text-nok-blue focus:ring-nok-blue"
                 />
-                <span className="text-sm">{doc.label}</span>
+                <span className="text-sm font-medium">{doc.label}</span>
               </label>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>หมายเหตุ</CardTitle>
+          <CardTitle className="text-nok-navy">หมายเหตุ</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea
@@ -250,15 +252,18 @@ export function VendorForm({ vendor, paymentTerms }: VendorFormProps) {
       </Card>
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={loading}>
-          {loading ? "กำลังบันทึก..." : isEditing ? "อัพเดท" : "เพิ่มผู้ขาย"}
-        </Button>
         <Button
           type="button"
           variant="outline"
           onClick={() => router.push("/dashboard/vendors")}
         >
+          <ArrowLeft className="mr-2 h-4 w-4" />
           ยกเลิก
+        </Button>
+        <div className="flex-1" />
+        <Button type="submit" disabled={loading} className="bg-nok-blue hover:bg-nok-blue-dark shadow-md">
+          <Save className="mr-2 h-4 w-4" />
+          {loading ? "กำลังบันทึก..." : isEditing ? "อัพเดท" : "เพิ่มผู้ขาย"}
         </Button>
       </div>
     </form>

@@ -1,0 +1,58 @@
+export const PERMISSION_KEYS = [
+  "dashboard.view", "reports.view",
+  "pr.view", "pr.create", "pr.edit", "pr.approve",
+  "po.view", "po.create", "po.edit", "po.approve",
+  "ap.view", "ap.create", "ap.edit", "ap.approve", "ap.pay",
+  "vendor.view", "vendor.create", "vendor.edit",
+  "approval.view", "approval.process",
+  "member.view", "member.manage",
+  "department.view", "department.manage",
+  "settings.company", "settings.departments", "settings.members",
+  "settings.permissions", "settings.flows", "settings.system",
+] as const;
+
+export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+
+export const PERMISSION_LABELS: Record<PermissionKey, string> = {
+  "dashboard.view": "ดูแดชบอร์ด",
+  "reports.view": "ดูรายงาน",
+  "pr.view": "ดูใบขอซื้อ",
+  "pr.create": "สร้างใบขอซื้อ",
+  "pr.edit": "แก้ไขใบขอซื้อ",
+  "pr.approve": "อนุมัติใบขอซื้อ",
+  "po.view": "ดูใบสั่งซื้อ",
+  "po.create": "สร้างใบสั่งซื้อ",
+  "po.edit": "แก้ไขใบสั่งซื้อ",
+  "po.approve": "อนุมัติใบสั่งซื้อ",
+  "ap.view": "ดูใบสำคัญจ่าย",
+  "ap.create": "สร้างใบสำคัญจ่าย",
+  "ap.edit": "แก้ไขใบสำคัญจ่าย",
+  "ap.approve": "อนุมัติใบสำคัญจ่าย",
+  "ap.pay": "บันทึกการจ่ายเงิน",
+  "vendor.view": "ดูผู้ขาย",
+  "vendor.create": "เพิ่มผู้ขาย",
+  "vendor.edit": "แก้ไขผู้ขาย",
+  "approval.view": "ดูรายการอนุมัติ",
+  "approval.process": "ดำเนินการอนุมัติ",
+  "member.view": "ดูสมาชิก",
+  "member.manage": "จัดการสมาชิก",
+  "department.view": "ดูแผนก",
+  "department.manage": "จัดการแผนก",
+  "settings.company": "ตั้งค่าบริษัท",
+  "settings.departments": "ตั้งค่าแผนก",
+  "settings.members": "ตั้งค่าสมาชิก",
+  "settings.permissions": "จัดการสิทธิ์",
+  "settings.flows": "ตั้งค่าระบบอนุมัติ",
+  "settings.system": "ตั้งค่าระบบ",
+};
+
+export const PERMISSION_GROUPS: { label: string; keys: PermissionKey[] }[] = [
+  { label: "ทั่วไป", keys: ["dashboard.view", "reports.view"] },
+  { label: "ใบขอซื้อ (PR)", keys: ["pr.view", "pr.create", "pr.edit", "pr.approve"] },
+  { label: "ใบสั่งซื้อ (PO)", keys: ["po.view", "po.create", "po.edit", "po.approve"] },
+  { label: "ใบสำคัญจ่าย (AP)", keys: ["ap.view", "ap.create", "ap.edit", "ap.approve", "ap.pay"] },
+  { label: "ผู้ขาย", keys: ["vendor.view", "vendor.create", "vendor.edit"] },
+  { label: "การอนุมัติ", keys: ["approval.view", "approval.process"] },
+  { label: "องค์กร", keys: ["member.view", "member.manage", "department.view", "department.manage"] },
+  { label: "ตั้งค่า", keys: ["settings.company", "settings.departments", "settings.members", "settings.permissions", "settings.flows", "settings.system"] },
+];

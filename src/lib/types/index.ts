@@ -25,6 +25,10 @@ export type ApprovalFlow = Tables<"approval_flows">;
 export type ApprovalFlowNode = Tables<"approval_flow_nodes">;
 export type ApprovalFlowEdge = Tables<"approval_flow_edges">;
 
+// Permission types
+export type RolePermission = Tables<"role_permissions">;
+export type UserPermissionOverride = Tables<"user_permission_overrides">;
+
 // Status labels in Thai
 export const STATUS_LABELS: Record<string, string> = {
   draft: "ร่าง",

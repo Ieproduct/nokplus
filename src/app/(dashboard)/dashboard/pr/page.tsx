@@ -1,14 +1,14 @@
 import { getPurchaseRequisitions } from "@/lib/actions/pr";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils/currency";
-import { formatDateThai } from "@/lib/utils/date";
+import { hasPermission } from "@/lib/permissions";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus } from "lucide-react";
+import { Plus, Eye, FileText } from "lucide-react";
 import { ListFilters } from "@/components/list-filters";
 
 const PR_STATUS_OPTIONS = [
@@ -26,26 +26,31 @@ export default async function PRListPage({
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
   const params = await searchParams;
-  let prs: Awaited<ReturnType<typeof getPurchaseRequisitions>> = [];
-  try {
-    prs = await getPurchaseRequisitions({
-      q: params.q,
-      status: params.status,
-    });
-  } catch {
-    // empty
-  }
+  const [prsResult, canCreate] = await Promise.all([
+    getPurchaseRequisitions({ q: params.q, status: params.status }).catch(() => []),
+    hasPermission("pr.create"),
+  ]);
+  const prs = prsResult as Awaited<ReturnType<typeof getPurchaseRequisitions>>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">ใบขอซื้อ (PR)</h1>
-          <p className="text-muted-foreground">จัดการใบขอซื้อ Purchase Requisition</p>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-nok-blue/10">
+            <FileText className="h-5 w-5 text-nok-blue" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-nok-navy">ใบขอซื้อ (PR)</h1>
+            <p className="text-muted-foreground text-sm">จัดการใบขอซื้อ Purchase Requisition</p>
+          </div>
         </div>
-        <Link href="/dashboard/pr/new">
-          <Button><Plus className="mr-2 h-4 w-4" />สร้าง PR</Button>
-        </Link>
+        {canCreate && (
+          <Link href="/dashboard/pr/new">
+            <Button className="bg-nok-blue hover:bg-nok-blue-dark shadow-md">
+              <Plus className="mr-2 h-4 w-4" />สร้าง PR
+            </Button>
+          </Link>
+        )}
       </div>
 
       <ListFilters
@@ -53,42 +58,45 @@ export default async function PRListPage({
         placeholder="ค้นหาเลขที่เอกสาร, ชื่อเรื่อง..."
       />
 
-      <div className="rounded-lg border bg-white">
+      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="nok-table-header hover:bg-transparent">
               <TableHead>เลขที่เอกสาร</TableHead>
               <TableHead>ชื่อเรื่อง</TableHead>
               <TableHead>แผนก</TableHead>
               <TableHead>ผู้ขอ</TableHead>
               <TableHead className="text-right">ยอดรวม</TableHead>
               <TableHead>สถานะ</TableHead>
-              <TableHead className="w-20"></TableHead>
+              <TableHead className="w-20 text-center">จัดการ</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {prs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                  <FileText className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
                   ยังไม่มีใบขอซื้อ
                 </TableCell>
               </TableRow>
             ) : (
               prs.map((pr) => (
-                <TableRow key={pr.id}>
-                  <TableCell className="font-mono text-sm">{pr.document_number}</TableCell>
+                <TableRow key={pr.id} className="hover:bg-blue-50/50">
+                  <TableCell className="font-mono text-sm font-medium text-nok-blue">{pr.document_number}</TableCell>
                   <TableCell className="font-medium">{pr.title}</TableCell>
-                  <TableCell>{pr.department}</TableCell>
-                  <TableCell>{(pr as any).profiles?.full_name || "-"}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(pr.total_amount)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{pr.department}</TableCell>
+                  <TableCell className="text-sm">{(pr as any).profiles?.full_name || "-"}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(pr.total_amount)}</TableCell>
                   <TableCell>
                     <Badge className={STATUS_COLORS[pr.status || "draft"]}>
                       {STATUS_LABELS[pr.status || "draft"]}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     <Link href={`/dashboard/pr/${pr.id}`}>
-                      <Button variant="ghost" size="sm">ดู</Button>
+                      <Button variant="ghost" size="sm" className="text-nok-blue hover:text-nok-blue-dark hover:bg-blue-50">
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </Link>
                   </TableCell>
                 </TableRow>

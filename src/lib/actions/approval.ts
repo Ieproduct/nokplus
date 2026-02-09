@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getActiveCompanyId } from "@/lib/company-context";
+import { requirePermission } from "@/lib/permissions";
 
 export async function getPendingApprovals() {
   const supabase = await createClient();
@@ -22,7 +23,40 @@ export async function getPendingApprovals() {
     .order("created_at", { ascending: true });
 
   if (error) throw error;
-  return data;
+  if (!data || data.length === 0) return [];
+
+  // Fetch document details for each approval
+  const prIds = data.filter((a) => a.document_type === "pr").map((a) => a.document_id);
+  const poIds = data.filter((a) => a.document_type === "po").map((a) => a.document_id);
+  const apIds = data.filter((a) => a.document_type === "ap").map((a) => a.document_id);
+
+  const [prDocs, poDocs, apDocs] = await Promise.all([
+    prIds.length > 0
+      ? supabase.from("purchase_requisitions").select("id, document_number, title, total_amount, department, created_at").in("id", prIds)
+      : { data: [] },
+    poIds.length > 0
+      ? supabase.from("purchase_orders").select("id, document_number, title, net_amount, department, created_at").in("id", poIds)
+      : { data: [] },
+    apIds.length > 0
+      ? supabase.from("ap_vouchers").select("id, document_number, title, net_amount, department, created_at").in("id", apIds)
+      : { data: [] },
+  ]);
+
+  const docMap: Record<string, { document_number: string; title: string; amount: number; department: string; created_at: string | null }> = {};
+  for (const doc of prDocs.data || []) {
+    docMap[doc.id] = { document_number: doc.document_number, title: doc.title, amount: Number(doc.total_amount) || 0, department: doc.department, created_at: doc.created_at };
+  }
+  for (const doc of poDocs.data || []) {
+    docMap[doc.id] = { document_number: doc.document_number, title: doc.title, amount: Number(doc.net_amount) || 0, department: doc.department, created_at: doc.created_at };
+  }
+  for (const doc of apDocs.data || []) {
+    docMap[doc.id] = { document_number: doc.document_number, title: doc.title, amount: Number(doc.net_amount) || 0, department: doc.department, created_at: doc.created_at };
+  }
+
+  return data.map((approval) => ({
+    ...approval,
+    document: docMap[approval.document_id] || null,
+  }));
 }
 
 export async function getDocumentApprovals(
@@ -68,6 +102,7 @@ export async function processApproval(
   action: "approve" | "reject" | "revision",
   comment?: string
 ) {
+  await requirePermission("approval.process");
   const supabase = await createClient();
 
   // Update the approval record

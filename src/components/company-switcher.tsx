@@ -82,7 +82,7 @@ export function CompanySwitcher({
   return (
     <>
       <Select value={activeCompanyId} onValueChange={handleSwitch}>
-        <SelectTrigger className="w-[200px] h-8 text-sm">
+        <SelectTrigger className="w-[220px] h-9 text-sm bg-white/15 border-white/20 text-white hover:bg-white/20 focus:ring-white/30 [&>svg]:text-white/70">
           <SelectValue placeholder="เลือกบริษัท" />
         </SelectTrigger>
         <SelectContent>

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getActiveCompanyId } from "@/lib/company-context";
+import { requirePermission } from "@/lib/permissions";
 
 export async function getMyCompanies() {
   const supabase = await createClient();
@@ -80,6 +81,9 @@ export async function createCompany(input: {
     .update({ active_company_id: company.id })
     .eq("id", user.id);
 
+  // Seed default permissions
+  await supabase.rpc("seed_company_permissions", { p_company_id: company.id });
+
   revalidatePath("/dashboard");
   return { success: true, id: company.id };
 }
@@ -99,6 +103,7 @@ export async function updateCompany(input: {
   procurement_contact_phone?: string;
   procurement_contact_email?: string;
 }) {
+  await requirePermission("settings.company");
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
 
@@ -168,6 +173,7 @@ export async function getCompanyMembers() {
 }
 
 export async function addMember(email: string, role: "admin" | "member" = "member") {
+  await requirePermission("member.manage");
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
 
@@ -196,6 +202,7 @@ export async function addMember(email: string, role: "admin" | "member" = "membe
 }
 
 export async function removeMember(memberId: string) {
+  await requirePermission("member.manage");
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
 
@@ -211,6 +218,7 @@ export async function removeMember(memberId: string) {
 }
 
 export async function updateMemberRole(memberId: string, role: "admin" | "member") {
+  await requirePermission("member.manage");
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
 

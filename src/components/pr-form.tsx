@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Send } from "lucide-react";
+import { Plus, Trash2, Send, Save, ArrowLeft } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/currency";
 import { calculateVat } from "@/lib/utils/tax";
 import { toast } from "sonner";
@@ -141,11 +141,11 @@ export function PRForm({ pr, departments, costCenters, units }: PRFormProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>ข้อมูลใบขอซื้อ</CardTitle>
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="bg-linear-to-r from-nok-navy to-nok-blue text-white">
+          <CardTitle className="text-white">ข้อมูลใบขอซื้อ</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid gap-4 md:grid-cols-2 pt-6">
           <div className="space-y-2 md:col-span-2">
             <Label>ชื่อเรื่อง *</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ชื่อเรื่องใบขอซื้อ" disabled={!canEdit} />
@@ -183,19 +183,19 @@ export function PRForm({ pr, departments, costCenters, units }: PRFormProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>รายการสินค้า/บริการ</CardTitle>
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between bg-linear-to-r from-nok-navy to-nok-blue text-white">
+          <CardTitle className="text-white">รายการสินค้า/บริการ</CardTitle>
           {canEdit && (
-            <Button type="button" variant="outline" size="sm" onClick={addItem}>
+            <Button type="button" variant="secondary" size="sm" onClick={addItem} className="bg-white/20 hover:bg-white/30 text-white border-0">
               <Plus className="mr-1 h-4 w-4" />เพิ่มรายการ
             </Button>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/50">
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>รายละเอียด</TableHead>
                 <TableHead className="w-24">จำนวน</TableHead>
@@ -208,7 +208,7 @@ export function PRForm({ pr, departments, costCenters, units }: PRFormProps) {
             <TableBody>
               {items.map((item, index) => (
                 <TableRow key={index}>
-                  <TableCell>{index + 1}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
                   <TableCell>
                     <Input
                       value={item.description}
@@ -253,7 +253,7 @@ export function PRForm({ pr, departments, costCenters, units }: PRFormProps) {
                   {canEdit && (
                     <TableCell>
                       <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)} disabled={items.length <= 1}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4 text-nok-error" />
                       </Button>
                     </TableCell>
                   )}
@@ -262,17 +262,17 @@ export function PRForm({ pr, departments, costCenters, units }: PRFormProps) {
             </TableBody>
           </Table>
 
-          <div className="mt-4 flex justify-end">
+          <div className="flex justify-end p-4 border-t bg-muted/30">
             <div className="w-72 space-y-2">
               <div className="flex justify-between text-sm">
-                <span>รวมก่อน VAT</span>
-                <span>{formatCurrency(subtotal)}</span>
+                <span className="text-muted-foreground">รวมก่อน VAT</span>
+                <span className="font-medium">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>VAT 7%</span>
-                <span>{formatCurrency(vatAmount)}</span>
+                <span className="text-muted-foreground">VAT 7%</span>
+                <span className="font-medium">{formatCurrency(vatAmount)}</span>
               </div>
-              <div className="flex justify-between font-bold border-t pt-2">
+              <div className="flex justify-between font-bold text-base border-t pt-2 text-nok-navy">
                 <span>รวมทั้งสิ้น</span>
                 <span>{formatCurrency(total)}</span>
               </div>
@@ -281,27 +281,30 @@ export function PRForm({ pr, departments, costCenters, units }: PRFormProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>หมายเหตุ</CardTitle></CardHeader>
+      <Card className="shadow-sm">
+        <CardHeader><CardTitle className="text-nok-navy">หมายเหตุ</CardTitle></CardHeader>
         <CardContent>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="หมายเหตุเพิ่มเติม" rows={2} disabled={!canEdit} />
         </CardContent>
       </Card>
 
       <div className="flex gap-3">
-        {canEdit && (
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? "กำลังบันทึก..." : isEditing ? "อัพเดท" : "บันทึก"}
-          </Button>
-        )}
+        <Button variant="outline" onClick={() => router.push("/dashboard/pr")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {canEdit ? "ยกเลิก" : "กลับ"}
+        </Button>
+        <div className="flex-1" />
         {isEditing && (pr.status === "draft" || pr.status === "revision") && (
-          <Button variant="outline" onClick={handleSubmitApproval} disabled={loading}>
+          <Button variant="outline" onClick={handleSubmitApproval} disabled={loading} className="border-nok-blue text-nok-blue hover:bg-nok-blue/10">
             <Send className="mr-2 h-4 w-4" />ส่งอนุมัติ
           </Button>
         )}
-        <Button variant="outline" onClick={() => router.push("/dashboard/pr")}>
-          {canEdit ? "ยกเลิก" : "กลับ"}
-        </Button>
+        {canEdit && (
+          <Button onClick={handleSave} disabled={loading} className="bg-nok-blue hover:bg-nok-blue-dark shadow-md">
+            <Save className="mr-2 h-4 w-4" />
+            {loading ? "กำลังบันทึก..." : isEditing ? "อัพเดท" : "บันทึก"}
+          </Button>
+        )}
       </div>
     </div>
   );

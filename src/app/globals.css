@@ -45,36 +45,48 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* NokPlus Design System Colors */
+  --color-nok-navy: #1e3a5f;
+  --color-nok-navy-light: #2a4a72;
+  --color-nok-navy-dark: #152d4a;
+  --color-nok-blue: #0288d1;
+  --color-nok-blue-light: #03a9f4;
+  --color-nok-blue-dark: #01579b;
+  --color-nok-success: #2e7d32;
+  --color-nok-error: #c62828;
+  --color-nok-warning: #f57f17;
+  --color-nok-info: #0288d1;
 }
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --background: oklch(0.985 0.002 247);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.55 0.15 240);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.96 0.005 247);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.96 0.005 247);
+  --muted-foreground: oklch(0.50 0.01 247);
+  --accent: oklch(0.96 0.005 247);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
+  --border: oklch(0.90 0.01 247);
+  --input: oklch(0.90 0.01 247);
+  --ring: oklch(0.55 0.15 240);
+  --chart-1: oklch(0.55 0.15 240);
   --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-3: oklch(0.55 0.18 150);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.55 0.15 240);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
@@ -123,4 +135,25 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* NokPlus Table Styles */
+.nok-table-header {
+  background: linear-gradient(135deg, #1e3a5f 0%, #0288d1 100%);
+}
+
+.nok-table-header th {
+  color: white !important;
+  font-weight: 600;
+  border-bottom: none;
+}
+
+/* Cards with overflow-hidden: gradient header flush to top */
+[data-slot="card"].overflow-hidden {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+[data-slot="card"].overflow-hidden > [data-slot="card-content"]:last-child {
+  padding-bottom: 1.5rem;
 }

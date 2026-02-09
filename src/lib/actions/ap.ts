@@ -4,12 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { calculateNetPayable, WhtType } from "@/lib/utils/tax";
 import { getActiveCompanyId } from "@/lib/company-context";
+import { requirePermission } from "@/lib/permissions";
 import type { Database } from "@/lib/types";
 
 export async function getApVouchers(filters?: {
   q?: string;
   status?: string;
 }) {
+  await requirePermission("ap.view");
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
   let query = supabase
@@ -85,6 +87,7 @@ export async function createApVoucher(input: {
   if (!user) throw new Error("Not authenticated");
   const companyId = await getActiveCompanyId();
 
+  await requirePermission("ap.create");
   const { data: docNumber } = await supabase.rpc("generate_document_number", {
     doc_prefix: "AP",
   });
@@ -163,6 +166,7 @@ export async function updateApVoucher(
 ) {
   const supabase = await createClient();
 
+  await requirePermission("ap.edit");
   // Verify status allows editing
   const { data: existing, error: fetchError } = await supabase
     .from("ap_vouchers")
@@ -258,6 +262,7 @@ export async function updatePaymentStatus(
   status: "unpaid" | "partial" | "paid",
   paidAmount?: number
 ) {
+  await requirePermission("ap.pay");
   const supabase = await createClient();
 
   const updateData: Record<string, unknown> = { payment_status: status };

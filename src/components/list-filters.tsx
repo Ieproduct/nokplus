@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 
 interface ListFiltersProps {
   statusOptions: { value: string; label: string }[];
@@ -64,21 +64,26 @@ export function ListFilters({
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm border">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <SlidersHorizontal className="h-4 w-4" />
+        <span className="text-sm font-medium hidden sm:inline">ตัวกรอง</span>
+      </div>
+      <div className="h-6 w-px bg-border" />
       <div className="relative flex-1 max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder={placeholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
+          className="pl-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-nok-blue/30"
         />
       </div>
       <Select
         value={currentStatus || "all"}
         onValueChange={handleStatusChange}
       >
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[180px] bg-muted/50 border-0 focus:ring-1 focus:ring-nok-blue/30">
           <SelectValue placeholder="สถานะทั้งหมด" />
         </SelectTrigger>
         <SelectContent>

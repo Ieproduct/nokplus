@@ -3,12 +3,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getActiveCompanyId } from "@/lib/company-context";
+import { requirePermission } from "@/lib/permissions";
 import type { Database } from "@/lib/types";
 
 export async function getVendors(filters?: {
   q?: string;
   status?: string;
 }) {
+  await requirePermission("vendor.view");
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
   let query = supabase.from("vendors").select("*").eq("company_id", companyId);
@@ -60,6 +62,7 @@ export async function getApprovedVendors() {
 }
 
 export async function createVendor(formData: FormData) {
+  await requirePermission("vendor.create");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
@@ -95,6 +98,7 @@ export async function createVendor(formData: FormData) {
 }
 
 export async function updateVendor(id: string, formData: FormData) {
+  await requirePermission("vendor.edit");
   const supabase = await createClient();
 
   const { error } = await supabase

@@ -532,6 +532,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "company_members_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       cost_centers: {
@@ -1012,6 +1019,76 @@ export type Database = {
           },
         ]
       }
+      role_permissions: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          granted: boolean
+          id: string
+          permission_key: string
+          role: Database["public"]["Enums"]["company_role"]
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          granted?: boolean
+          id?: string
+          permission_key: string
+          role: Database["public"]["Enums"]["company_role"]
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          granted?: boolean
+          id?: string
+          permission_key?: string
+          role?: Database["public"]["Enums"]["company_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_permission_overrides: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          granted: boolean
+          id: string
+          permission_key: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          granted: boolean
+          id?: string
+          permission_key: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          granted?: boolean
+          id?: string
+          permission_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_overrides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendors: {
         Row: {
           address: string | null
@@ -1124,6 +1201,10 @@ export type Database = {
       }
       is_company_admin: { Args: { p_company_id: string }; Returns: boolean }
       is_company_member: { Args: { p_company_id: string }; Returns: boolean }
+      seed_company_permissions: {
+        Args: { p_company_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       approval_action: "approve" | "reject" | "revision"

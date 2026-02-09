@@ -4,12 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { calculateVat } from "@/lib/utils/tax";
 import { getActiveCompanyId } from "@/lib/company-context";
+import { requirePermission } from "@/lib/permissions";
 import type { Database } from "@/lib/types";
 
 export async function getPurchaseRequisitions(filters?: {
   q?: string;
   status?: string;
 }) {
+  await requirePermission("pr.view");
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
   let query = supabase
@@ -79,6 +81,7 @@ export async function createPurchaseRequisition(input: {
   notes?: string;
   items: LineItem[];
 }) {
+  await requirePermission("pr.create");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
@@ -154,6 +157,7 @@ export async function updatePurchaseRequisition(
     items: LineItem[];
   }
 ) {
+  await requirePermission("pr.edit");
   const supabase = await createClient();
 
   const subtotal = input.items.reduce(

@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Send, CreditCard } from "lucide-react";
+import { Plus, Trash2, Send, CreditCard, Save, ArrowLeft, ClipboardCheck } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/currency";
 import { calculateNetPayable, getWhtLabel, WhtType } from "@/lib/utils/tax";
 import { toast } from "sonner";
@@ -213,11 +213,11 @@ export function APForm({ ap, vendors, approvedPOs, departments, costCenters, uni
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>ข้อมูลใบสำคัญจ่าย</CardTitle>
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="bg-linear-to-r from-nok-navy to-nok-blue text-white">
+          <CardTitle className="text-white">ข้อมูลใบสำคัญจ่าย</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid gap-4 md:grid-cols-2 pt-6">
           {approvedPOs.length > 0 && (
             <div className="space-y-2 md:col-span-2">
               <Label>อ้างอิง PO (ถ้ามี)</Label>
@@ -285,19 +285,19 @@ export function APForm({ ap, vendors, approvedPOs, departments, costCenters, uni
       </Card>
 
       {/* Line Items */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>รายการ</CardTitle>
+      <Card className="shadow-sm overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between bg-linear-to-r from-nok-navy to-nok-blue text-white">
+          <CardTitle className="text-white">รายการ</CardTitle>
           {canEdit && (
-            <Button type="button" variant="outline" size="sm" onClick={addItem}>
+            <Button type="button" variant="secondary" size="sm" onClick={addItem} className="bg-white/20 hover:bg-white/30 text-white border-0">
               <Plus className="mr-1 h-4 w-4" />เพิ่มรายการ
             </Button>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/50">
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>รายละเอียด</TableHead>
                 <TableHead className="w-24">จำนวน</TableHead>
@@ -310,7 +310,7 @@ export function APForm({ ap, vendors, approvedPOs, departments, costCenters, uni
             <TableBody>
               {items.map((item, index) => (
                 <TableRow key={index}>
-                  <TableCell>{index + 1}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
                   <TableCell>
                     <Input value={item.description} onChange={(e) => updateItem(index, "description", e.target.value)} disabled={!canEdit} placeholder="รายละเอียด" />
                   </TableCell>
@@ -332,7 +332,7 @@ export function APForm({ ap, vendors, approvedPOs, departments, costCenters, uni
                   {canEdit && (
                     <TableCell>
                       <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)} disabled={items.length <= 1}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4 text-nok-error" />
                       </Button>
                     </TableCell>
                   )}
@@ -341,18 +341,18 @@ export function APForm({ ap, vendors, approvedPOs, departments, costCenters, uni
             </TableBody>
           </Table>
 
-          <div className="mt-4 flex justify-end">
+          <div className="flex justify-end p-4 border-t bg-muted/30">
             <div className="w-80 space-y-2 text-sm">
-              <div className="flex justify-between"><span>รวมก่อน VAT</span><span>{formatCurrency(calc.subtotal)}</span></div>
-              <div className="flex justify-between"><span>VAT 7%</span><span>{formatCurrency(calc.vatAmount)}</span></div>
-              <div className="flex justify-between"><span>รวม (Subtotal + VAT)</span><span>{formatCurrency(calc.totalAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">รวมก่อน VAT</span><span className="font-medium">{formatCurrency(calc.subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">VAT 7%</span><span className="font-medium">{formatCurrency(calc.vatAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">รวม (Subtotal + VAT)</span><span className="font-medium">{formatCurrency(calc.totalAmount)}</span></div>
               {whtType !== "none" && (
-                <div className="flex justify-between text-red-600">
+                <div className="flex justify-between text-nok-error">
                   <span>หัก WHT - {getWhtLabel(whtType)}</span>
                   <span>-{formatCurrency(calc.whtAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-base border-t pt-2">
+              <div className="flex justify-between font-bold text-base border-t pt-2 text-nok-navy">
                 <span>ยอดสุทธิ (Net Payable)</span>
                 <span>{formatCurrency(calc.netAmount)}</span>
               </div>
@@ -363,17 +363,22 @@ export function APForm({ ap, vendors, approvedPOs, departments, costCenters, uni
 
       {/* AP Checklist */}
       {isEditing && (
-        <Card>
-          <CardHeader>
-            <CardTitle>AP Checklist - ตรวจสอบเอกสาร</CardTitle>
+        <Card className="shadow-sm overflow-hidden">
+          <CardHeader className="bg-amber-50 border-b border-amber-100">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-amber-600" />
+              <CardTitle className="text-nok-navy">AP Checklist - ตรวจสอบเอกสาร</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <div className="grid gap-3 md:grid-cols-2">
               {AP_CHECKLIST_ITEMS.map((item) => (
                 <label
                   key={item.key}
-                  className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-                    checklist[item.key] ? "bg-green-50 border-green-200" : "hover:bg-muted"
+                  className={`flex items-center gap-3 rounded-xl border-2 p-3.5 cursor-pointer transition-all duration-200 ${
+                    checklist[item.key]
+                      ? "bg-green-50 border-green-300"
+                      : "hover:bg-muted border-transparent bg-muted/30"
                   }`}
                 >
                   <Checkbox
@@ -382,13 +387,13 @@ export function APForm({ ap, vendors, approvedPOs, departments, costCenters, uni
                   />
                   <div>
                     <span className="text-sm font-medium">{item.label}</span>
-                    {item.required && <span className="text-xs text-red-500 ml-1">*</span>}
+                    {item.required && <span className="text-xs text-nok-error ml-1">*</span>}
                   </div>
                 </label>
               ))}
             </div>
             {!requiredChecked && (
-              <p className="mt-3 text-sm text-yellow-600">
+              <p className="mt-3 text-sm text-amber-600 bg-amber-50 rounded-lg p-3">
                 กรุณาตรวจสอบเอกสารที่มีเครื่องหมาย * ให้ครบถ้วนก่อนส่งอนุมัติ
               </p>
             )}
@@ -396,32 +401,35 @@ export function APForm({ ap, vendors, approvedPOs, departments, costCenters, uni
         </Card>
       )}
 
-      <Card>
-        <CardHeader><CardTitle>หมายเหตุ</CardTitle></CardHeader>
+      <Card className="shadow-sm">
+        <CardHeader><CardTitle className="text-nok-navy">หมายเหตุ</CardTitle></CardHeader>
         <CardContent>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="หมายเหตุ" rows={2} disabled={!canEdit} />
         </CardContent>
       </Card>
 
       <div className="flex gap-3">
-        {canEdit && (
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? "กำลังบันทึก..." : isEditing ? "อัพเดท" : "บันทึก"}
-          </Button>
-        )}
-        {isEditing && (ap.status === "draft" || ap.status === "revision") && (
-          <Button variant="outline" onClick={handleSubmitApproval} disabled={loading || !requiredChecked}>
-            <Send className="mr-2 h-4 w-4" />ส่งอนุมัติ
-          </Button>
-        )}
+        <Button variant="outline" onClick={() => router.push("/dashboard/ap")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {canEdit ? "ยกเลิก" : "กลับ"}
+        </Button>
+        <div className="flex-1" />
         {isEditing && ap.status === "approved" && ap.payment_status !== "paid" && (
-          <Button onClick={handleMarkPaid} disabled={loading} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={handleMarkPaid} disabled={loading} className="bg-nok-success hover:bg-green-700 shadow-md">
             <CreditCard className="mr-2 h-4 w-4" />บันทึกจ่ายเงิน
           </Button>
         )}
-        <Button variant="outline" onClick={() => router.push("/dashboard/ap")}>
-          {canEdit ? "ยกเลิก" : "กลับ"}
-        </Button>
+        {isEditing && (ap.status === "draft" || ap.status === "revision") && (
+          <Button variant="outline" onClick={handleSubmitApproval} disabled={loading || !requiredChecked} className="border-nok-blue text-nok-blue hover:bg-nok-blue/10">
+            <Send className="mr-2 h-4 w-4" />ส่งอนุมัติ
+          </Button>
+        )}
+        {canEdit && (
+          <Button onClick={handleSave} disabled={loading} className="bg-nok-blue hover:bg-nok-blue-dark shadow-md">
+            <Save className="mr-2 h-4 w-4" />
+            {loading ? "กำลังบันทึก..." : isEditing ? "อัพเดท" : "บันทึก"}
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -4,12 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { calculateNetPayable, WhtType } from "@/lib/utils/tax";
 import { getActiveCompanyId } from "@/lib/company-context";
+import { requirePermission } from "@/lib/permissions";
 import type { Database } from "@/lib/types";
 
 export async function getPurchaseOrders(filters?: {
   q?: string;
   status?: string;
 }) {
+  await requirePermission("po.view");
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
   let query = supabase
@@ -76,6 +78,7 @@ export async function createPurchaseOrder(input: {
   if (!user) throw new Error("Not authenticated");
   const companyId = await getActiveCompanyId();
 
+  await requirePermission("po.create");
   const { data: docNumber } = await supabase.rpc("generate_document_number", {
     doc_prefix: "PO",
   });
@@ -151,6 +154,7 @@ export async function updatePurchaseOrder(
 ) {
   const supabase = await createClient();
 
+  await requirePermission("po.edit");
   // Verify status allows editing
   const { data: existing, error: fetchError } = await supabase
     .from("purchase_orders")
