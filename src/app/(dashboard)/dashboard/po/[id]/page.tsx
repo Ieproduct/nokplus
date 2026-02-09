@@ -17,11 +17,12 @@ export default async function PODetailPage({ params }: { params: Promise<{ id: s
 
   let vendors: Awaited<ReturnType<typeof getApprovedVendors>> = [];
   let approvedPRs: Awaited<ReturnType<typeof getApprovedPRs>> = [];
-  try { [vendors, approvedPRs] = await Promise.all([getApprovedVendors(), getApprovedPRs()]); } catch { /* */ }
+  const cid = po.company_id ?? undefined;
+  try { [vendors, approvedPRs] = await Promise.all([getApprovedVendors(cid), getApprovedPRs(cid)]); } catch { /* */ }
 
   const [departments, costCenters] = await Promise.all([
-    getDepartments(),
-    getCostCenters(),
+    getDepartments(cid),
+    getCostCenters(cid),
   ]);
 
   return (

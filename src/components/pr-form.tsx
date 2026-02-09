@@ -10,10 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Send, Save, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Send, Save, ArrowLeft, Building2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/currency";
 import { calculateVat } from "@/lib/utils/tax";
 import { toast } from "sonner";
+import { usePathname } from "next/navigation";
 
 interface LineItem {
   description: string;
@@ -42,13 +43,17 @@ interface PRFormProps {
   departments: Array<{ code: string; name: string }>;
   costCenters: Array<{ code: string; name: string }>;
   units: Array<{ code: string; name: string }>;
+  companies?: Array<{ id: string; name: string }>;
+  selectedCompanyId?: string;
 }
 
-export function PRForm({ pr, departments, costCenters, units }: PRFormProps) {
+export function PRForm({ pr, departments, costCenters, units, companies, selectedCompanyId }: PRFormProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(false);
   const isEditing = !!pr;
   const canEdit = !pr || pr.status === "draft" || pr.status === "revision";
+  const showCompanySelector = !isEditing && companies && companies.length > 1;
 
   const [title, setTitle] = useState(pr?.title || "");
   const [description, setDescription] = useState(pr?.description || "");
@@ -107,6 +112,7 @@ export function PRForm({ pr, departments, costCenters, units }: PRFormProps) {
         required_date: requiredDate || undefined,
         notes: notes || undefined,
         items,
+        companyId: selectedCompanyId,
       };
 
       if (isEditing) {
@@ -141,6 +147,30 @@ export function PRForm({ pr, departments, costCenters, units }: PRFormProps) {
 
   return (
     <div className="space-y-6">
+      {showCompanySelector && (
+        <Card className="shadow-sm overflow-hidden border-amber-200 bg-amber-50/50">
+          <CardContent className="flex items-center gap-4 py-4">
+            <Building2 className="h-5 w-5 text-amber-600 shrink-0" />
+            <div className="space-y-1 flex-1">
+              <Label className="text-sm font-medium">บริษัท (สร้างเอกสารในนามบริษัท)</Label>
+              <Select
+                value={selectedCompanyId}
+                onValueChange={(v) => router.push(`${pathname}?company=${v}`)}
+              >
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="เลือกบริษัท" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="shadow-sm overflow-hidden">
         <CardHeader className="bg-linear-to-r from-nok-navy to-nok-blue text-white">
           <CardTitle className="text-white">ข้อมูลใบขอซื้อ</CardTitle>

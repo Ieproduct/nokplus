@@ -42,3 +42,49 @@ export async function getActiveCompanyId(): Promise<string> {
 
   return membership.company_id;
 }
+
+/**
+ * ถ้ามี companyId → ตรวจสอบว่า user เป็นสมาชิกบริษัทนั้นแล้ว return
+ * ถ้าไม่มี → return getActiveCompanyId()
+ */
+export async function getCompanyIdOrActive(companyId?: string): Promise<string> {
+  if (!companyId) return getActiveCompanyId();
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: membership } = await supabase
+    .from("company_members")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!membership) {
+    throw new Error("คุณไม่ได้เป็นสมาชิกบริษัทนี้");
+  }
+
+  return companyId;
+}
+
+/**
+ * ดึงรายชื่อ company_id ทั้งหมดที่ user เป็นสมาชิก
+ */
+export async function getUserCompanyIds(): Promise<string[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data, error } = await supabase
+    .from("company_members")
+    .select("company_id")
+    .eq("user_id", user.id);
+
+  if (error) throw error;
+  return data.map((m) => m.company_id);
+}

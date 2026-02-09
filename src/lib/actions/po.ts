@@ -3,23 +3,31 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { calculateNetPayable, WhtType } from "@/lib/utils/tax";
-import { getActiveCompanyId } from "@/lib/company-context";
+import { getActiveCompanyId, getCompanyIdOrActive, getUserCompanyIds } from "@/lib/company-context";
 import { requirePermission } from "@/lib/permissions";
 import type { Database } from "@/lib/types";
 
 export async function getPurchaseOrders(filters?: {
   q?: string;
   status?: string;
+  allCompanies?: boolean;
 }) {
   await requirePermission("po.view");
   const supabase = await createClient();
-  const companyId = await getActiveCompanyId();
+
   let query = supabase
     .from("purchase_orders")
     .select(
-      "*, vendors(name), profiles!purchase_orders_created_by_fkey(full_name)"
-    )
-    .eq("company_id", companyId);
+      "*, vendors(name), profiles!purchase_orders_created_by_fkey(full_name), companies(name_th)"
+    );
+
+  if (filters?.allCompanies) {
+    const companyIds = await getUserCompanyIds();
+    query = query.in("company_id", companyIds);
+  } else {
+    const companyId = await getActiveCompanyId();
+    query = query.eq("company_id", companyId);
+  }
 
   if (filters?.q) {
     query = query.or(
@@ -72,11 +80,12 @@ export async function createPurchaseOrder(input: {
   wht_type: WhtType;
   notes?: string;
   items: POLineItem[];
+  companyId?: string;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  const companyId = await getActiveCompanyId();
+  const companyId = await getCompanyIdOrActive(input.companyId);
 
   await requirePermission("po.create");
   const { data: docNumber } = await supabase.rpc("generate_document_number", {

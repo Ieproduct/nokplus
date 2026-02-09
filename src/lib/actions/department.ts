@@ -2,13 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { getActiveCompanyId } from "@/lib/company-context";
+import { getActiveCompanyId, getCompanyIdOrActive } from "@/lib/company-context";
 
 // ==================== Departments ====================
 
-export async function getDepartments() {
+export async function getDepartments(forCompanyId?: string) {
   const supabase = await createClient();
-  const companyId = await getActiveCompanyId();
+  const companyId = await getCompanyIdOrActive(forCompanyId);
 
   const { data, error } = await supabase
     .from("departments")
@@ -99,9 +99,9 @@ export async function deleteDepartment(id: string) {
 
 // ==================== Cost Centers ====================
 
-export async function getCostCenters() {
+export async function getCostCenters(forCompanyId?: string) {
   const supabase = await createClient();
-  const companyId = await getActiveCompanyId();
+  const companyId = await getCompanyIdOrActive(forCompanyId);
 
   const { data, error } = await supabase
     .from("cost_centers")

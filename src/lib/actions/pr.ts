@@ -3,21 +3,29 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { calculateVat } from "@/lib/utils/tax";
-import { getActiveCompanyId } from "@/lib/company-context";
+import { getActiveCompanyId, getCompanyIdOrActive, getUserCompanyIds } from "@/lib/company-context";
 import { requirePermission } from "@/lib/permissions";
 import type { Database } from "@/lib/types";
 
 export async function getPurchaseRequisitions(filters?: {
   q?: string;
   status?: string;
+  allCompanies?: boolean;
 }) {
   await requirePermission("pr.view");
   const supabase = await createClient();
-  const companyId = await getActiveCompanyId();
+
   let query = supabase
     .from("purchase_requisitions")
-    .select("*, profiles!purchase_requisitions_requested_by_fkey(full_name)")
-    .eq("company_id", companyId);
+    .select("*, profiles!purchase_requisitions_requested_by_fkey(full_name), companies(name_th)");
+
+  if (filters?.allCompanies) {
+    const companyIds = await getUserCompanyIds();
+    query = query.in("company_id", companyIds);
+  } else {
+    const companyId = await getActiveCompanyId();
+    query = query.eq("company_id", companyId);
+  }
 
   if (filters?.q) {
     query = query.or(
@@ -51,9 +59,9 @@ export async function getPurchaseRequisition(id: string) {
   return data;
 }
 
-export async function getApprovedPRs() {
+export async function getApprovedPRs(forCompanyId?: string) {
   const supabase = await createClient();
-  const companyId = await getActiveCompanyId();
+  const companyId = await getCompanyIdOrActive(forCompanyId);
   const { data, error } = await supabase
     .from("purchase_requisitions")
     .select("*")
@@ -80,6 +88,7 @@ export async function createPurchaseRequisition(input: {
   required_date?: string;
   notes?: string;
   items: LineItem[];
+  companyId?: string;
 }) {
   await requirePermission("pr.create");
   const supabase = await createClient();
@@ -99,7 +108,7 @@ export async function createPurchaseRequisition(input: {
   const vatAmount = calculateVat(subtotal);
   const totalAmount = Math.round((subtotal + vatAmount) * 100) / 100;
 
-  const companyId = await getActiveCompanyId();
+  const companyId = await getCompanyIdOrActive(input.companyId);
 
   // Create PR
   const { data: pr, error: prError } = await supabase

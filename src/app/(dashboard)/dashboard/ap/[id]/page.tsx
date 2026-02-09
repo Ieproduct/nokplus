@@ -23,21 +23,22 @@ export default async function APDetailPage({
     notFound();
   }
 
+  const cid = ap.company_id ?? undefined;
   let vendors: Awaited<ReturnType<typeof getApprovedVendors>> = [];
   let pos: Awaited<ReturnType<typeof getPurchaseOrders>> = [];
   try {
-    [vendors, pos] = await Promise.all([getApprovedVendors(), getPurchaseOrders()]);
+    [vendors, pos] = await Promise.all([getApprovedVendors(cid), getPurchaseOrders()]);
   } catch {
     // empty
   }
 
   const approvedPOs = pos
-    .filter((po) => po.status === "approved")
+    .filter((po) => po.status === "approved" && po.company_id === ap.company_id)
     .map((po) => ({ id: po.id, document_number: po.document_number, title: po.title }));
 
   const [departments, costCenters] = await Promise.all([
-    getDepartments(),
-    getCostCenters(),
+    getDepartments(cid),
+    getCostCenters(cid),
   ]);
 
   return (

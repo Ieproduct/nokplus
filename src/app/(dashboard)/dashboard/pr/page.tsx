@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Eye, FileText } from "lucide-react";
 import { ListFilters } from "@/components/list-filters";
+import { CompanyFilterToggle } from "@/components/company-filter-toggle";
 
 const PR_STATUS_OPTIONS = [
   { value: "draft", label: "ร่าง" },
@@ -23,11 +24,12 @@ const PR_STATUS_OPTIONS = [
 export default async function PRListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; all?: string }>;
 }) {
   const params = await searchParams;
+  const allCompanies = params.all === "1";
   const [prsResult, canCreate] = await Promise.all([
-    getPurchaseRequisitions({ q: params.q, status: params.status }).catch(() => []),
+    getPurchaseRequisitions({ q: params.q, status: params.status, allCompanies }).catch(() => []),
     hasPermission("pr.create"),
   ]);
   const prs = prsResult as Awaited<ReturnType<typeof getPurchaseRequisitions>>;
@@ -44,13 +46,16 @@ export default async function PRListPage({
             <p className="text-muted-foreground text-sm">จัดการใบขอซื้อ Purchase Requisition</p>
           </div>
         </div>
-        {canCreate && (
-          <Link href="/dashboard/pr/new">
-            <Button className="bg-nok-blue hover:bg-nok-blue-dark shadow-md">
-              <Plus className="mr-2 h-4 w-4" />สร้าง PR
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <CompanyFilterToggle />
+          {canCreate && (
+            <Link href="/dashboard/pr/new">
+              <Button className="bg-nok-blue hover:bg-nok-blue-dark shadow-md">
+                <Plus className="mr-2 h-4 w-4" />สร้าง PR
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <ListFilters
@@ -64,6 +69,7 @@ export default async function PRListPage({
             <TableRow className="nok-table-header hover:bg-transparent">
               <TableHead>เลขที่เอกสาร</TableHead>
               <TableHead>ชื่อเรื่อง</TableHead>
+              {allCompanies && <TableHead>บริษัท</TableHead>}
               <TableHead>แผนก</TableHead>
               <TableHead>ผู้ขอ</TableHead>
               <TableHead className="text-right">ยอดรวม</TableHead>
@@ -74,7 +80,7 @@ export default async function PRListPage({
           <TableBody>
             {prs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={allCompanies ? 8 : 7} className="text-center py-12 text-muted-foreground">
                   <FileText className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
                   ยังไม่มีใบขอซื้อ
                 </TableCell>
@@ -84,6 +90,11 @@ export default async function PRListPage({
                 <TableRow key={pr.id} className="hover:bg-blue-50/50">
                   <TableCell className="font-mono text-sm font-medium text-nok-blue">{pr.document_number}</TableCell>
                   <TableCell className="font-medium">{pr.title}</TableCell>
+                  {allCompanies && (
+                    <TableCell className="text-sm text-muted-foreground">
+                      {(pr as any).companies?.name_th || "-"}
+                    </TableCell>
+                  )}
                   <TableCell className="text-sm text-muted-foreground">{pr.department}</TableCell>
                   <TableCell className="text-sm">{(pr as any).profiles?.full_name || "-"}</TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(pr.total_amount)}</TableCell>

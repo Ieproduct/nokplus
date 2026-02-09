@@ -22,8 +22,8 @@ export default async function PRDetailPage({
   }
 
   const [departments, costCenters] = await Promise.all([
-    getDepartments(),
-    getCostCenters(),
+    getDepartments(pr.company_id ?? undefined),
+    getCostCenters(pr.company_id ?? undefined),
   ]);
 
   return (

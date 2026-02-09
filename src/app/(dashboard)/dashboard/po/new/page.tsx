@@ -2,20 +2,37 @@ import { getApprovedVendors } from "@/lib/actions/vendor";
 import { getApprovedPRs } from "@/lib/actions/pr";
 import { getDocumentSettingsConfig } from "@/lib/config/loader";
 import { getDepartments, getCostCenters } from "@/lib/actions/department";
+import { getMyCompanies } from "@/lib/actions/company";
+import { getActiveCompanyId } from "@/lib/company-context";
 import { POForm } from "@/components/po-form";
 
-export default async function NewPOPage() {
+export default async function NewPOPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ company?: string }>;
+}) {
+  const params = await searchParams;
   const docConfig = getDocumentSettingsConfig();
+
+  const [companies, activeCompanyId] = await Promise.all([
+    getMyCompanies(),
+    getActiveCompanyId(),
+  ]);
+
+  const selectedCompanyId = params.company || activeCompanyId;
 
   let vendors: Awaited<ReturnType<typeof getApprovedVendors>> = [];
   let approvedPRs: Awaited<ReturnType<typeof getApprovedPRs>> = [];
   try {
-    [vendors, approvedPRs] = await Promise.all([getApprovedVendors(), getApprovedPRs()]);
+    [vendors, approvedPRs] = await Promise.all([
+      getApprovedVendors(selectedCompanyId),
+      getApprovedPRs(selectedCompanyId),
+    ]);
   } catch { /* empty */ }
 
   const [departments, costCenters] = await Promise.all([
-    getDepartments(),
-    getCostCenters(),
+    getDepartments(selectedCompanyId),
+    getCostCenters(selectedCompanyId),
   ]);
 
   return (
@@ -31,6 +48,8 @@ export default async function NewPOPage() {
         costCenters={costCenters.map((c) => ({ code: c.code, name: c.name }))}
         units={docConfig.units}
         paymentTerms={docConfig.payment_terms}
+        companies={companies.map((c) => ({ id: c.companies!.id, name: c.companies!.name_th }))}
+        selectedCompanyId={selectedCompanyId}
       />
     </div>
   );

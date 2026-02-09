@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { getActiveCompanyId } from "@/lib/company-context";
+import { getActiveCompanyId, getCompanyIdOrActive } from "@/lib/company-context";
 import { requirePermission } from "@/lib/permissions";
 import type { Database } from "@/lib/types";
 
@@ -47,9 +47,9 @@ export async function getVendor(id: string) {
   return data;
 }
 
-export async function getApprovedVendors() {
+export async function getApprovedVendors(forCompanyId?: string) {
   const supabase = await createClient();
-  const companyId = await getActiveCompanyId();
+  const companyId = await getCompanyIdOrActive(forCompanyId);
   const { data, error } = await supabase
     .from("vendors")
     .select("*")

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Eye, Receipt } from "lucide-react";
 import { ListFilters } from "@/components/list-filters";
+import { CompanyFilterToggle } from "@/components/company-filter-toggle";
 
 const AP_STATUS_OPTIONS = [
   { value: "draft", label: "ร่าง" },
@@ -26,11 +27,12 @@ const AP_STATUS_OPTIONS = [
 export default async function APListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; all?: string }>;
 }) {
   const params = await searchParams;
+  const allCompanies = params.all === "1";
   const [apsResult, canCreate] = await Promise.all([
-    getApVouchers({ q: params.q, status: params.status }).catch(() => []),
+    getApVouchers({ q: params.q, status: params.status, allCompanies }).catch(() => []),
     hasPermission("ap.create"),
   ]);
   const aps = apsResult as Awaited<ReturnType<typeof getApVouchers>>;
@@ -47,14 +49,17 @@ export default async function APListPage({
             <p className="text-muted-foreground text-sm">จัดการใบสำคัญจ่าย Accounts Payable</p>
           </div>
         </div>
-        {canCreate && (
-          <Link href="/dashboard/ap/new">
-            <Button className="bg-nok-blue hover:bg-nok-blue-dark shadow-md">
-              <Plus className="mr-2 h-4 w-4" />
-              สร้าง AP
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <CompanyFilterToggle />
+          {canCreate && (
+            <Link href="/dashboard/ap/new">
+              <Button className="bg-nok-blue hover:bg-nok-blue-dark shadow-md">
+                <Plus className="mr-2 h-4 w-4" />
+                สร้าง AP
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <ListFilters
@@ -68,6 +73,7 @@ export default async function APListPage({
             <TableRow className="nok-table-header hover:bg-transparent">
               <TableHead>เลขที่เอกสาร</TableHead>
               <TableHead>ชื่อเรื่อง</TableHead>
+              {allCompanies && <TableHead>บริษัท</TableHead>}
               <TableHead>ผู้ขาย</TableHead>
               <TableHead>เลขที่ใบแจ้งหนี้</TableHead>
               <TableHead className="text-right">ยอดสุทธิ</TableHead>
@@ -79,7 +85,7 @@ export default async function APListPage({
           <TableBody>
             {aps.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={allCompanies ? 9 : 8} className="text-center py-12 text-muted-foreground">
                   <Receipt className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
                   ยังไม่มีใบสำคัญจ่าย
                 </TableCell>
@@ -89,6 +95,11 @@ export default async function APListPage({
                 <TableRow key={ap.id} className="hover:bg-blue-50/50">
                   <TableCell className="font-mono text-sm font-medium text-nok-blue">{ap.document_number}</TableCell>
                   <TableCell className="font-medium">{ap.title}</TableCell>
+                  {allCompanies && (
+                    <TableCell className="text-sm text-muted-foreground">
+                      {(ap as any).companies?.name_th || "-"}
+                    </TableCell>
+                  )}
                   <TableCell className="text-sm text-muted-foreground">{(ap as Record<string, unknown> & { vendors?: { name: string } }).vendors?.name || "-"}</TableCell>
                   <TableCell className="text-sm">{ap.invoice_number || "-"}</TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(ap.net_amount)}</TableCell>
