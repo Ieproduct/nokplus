@@ -41,11 +41,15 @@ export function MemberManager({ members }: { members: Member[] }) {
     if (!email) return;
     setLoading(true);
     try {
-      await addMember(email, role);
-      toast.success("เพิ่มสมาชิกเรียบร้อย");
-      setEmail("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      const result = await addMember(email.trim(), role);
+      if (result.success) {
+        toast.success("เพิ่มสมาชิกเรียบร้อย");
+        setEmail("");
+      } else {
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+      }
+    } catch {
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
       setLoading(false);
     }
@@ -54,19 +58,27 @@ export function MemberManager({ members }: { members: Member[] }) {
   async function handleRemove(memberId: string) {
     if (!confirm("ต้องการลบสมาชิกนี้?")) return;
     try {
-      await removeMember(memberId);
-      toast.success("ลบสมาชิกเรียบร้อย");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      const result = await removeMember(memberId);
+      if (result.success) {
+        toast.success("ลบสมาชิกเรียบร้อย");
+      } else {
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+      }
+    } catch {
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
     }
   }
 
   async function handleRoleChange(memberId: string, newRole: "admin" | "member") {
     try {
-      await updateMemberRole(memberId, newRole);
-      toast.success("เปลี่ยนบทบาทเรียบร้อย");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      const result = await updateMemberRole(memberId, newRole);
+      if (result.success) {
+        toast.success("เปลี่ยนบทบาทเรียบร้อย");
+      } else {
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+      }
+    } catch {
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
     }
   }
 

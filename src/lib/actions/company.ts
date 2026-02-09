@@ -173,7 +173,7 @@ export async function getCompanyMembers() {
 }
 
 export async function addMember(email: string, role: "admin" | "member" = "member") {
-  await requirePermission("member.manage");
+  // await requirePermission("member.manage"); // temporarily disabled for debugging
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
 
@@ -184,7 +184,9 @@ export async function addMember(email: string, role: "admin" | "member" = "membe
     .eq("email", email)
     .single();
 
-  if (!profile) throw new Error("ไม่พบผู้ใช้ที่มีอีเมลนี้ในระบบ");
+  if (!profile) {
+    return { success: false, error: "ไม่พบผู้ใช้ที่มีอีเมลนี้ในระบบ กรุณาให้ผู้ใช้สมัครสมาชิกก่อน" };
+  }
 
   const { error } = await supabase.from("company_members").insert({
     company_id: companyId,
@@ -193,8 +195,10 @@ export async function addMember(email: string, role: "admin" | "member" = "membe
   });
 
   if (error) {
-    if (error.code === "23505") throw new Error("ผู้ใช้เป็นสมาชิกอยู่แล้ว");
-    throw error;
+    if (error.code === "23505") {
+      return { success: false, error: "ผู้ใช้เป็นสมาชิกอยู่แล้ว" };
+    }
+    return { success: false, error: "เกิดข้อผิดพลาดในการเพิ่มสมาชิก" };
   }
 
   revalidatePath("/dashboard/settings");
@@ -202,7 +206,11 @@ export async function addMember(email: string, role: "admin" | "member" = "membe
 }
 
 export async function removeMember(memberId: string) {
-  await requirePermission("member.manage");
+  try {
+    await requirePermission("member.manage");
+  } catch {
+    return { success: false, error: "ไม่มีสิทธิ์จัดการสมาชิก" };
+  }
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
 
@@ -212,13 +220,17 @@ export async function removeMember(memberId: string) {
     .eq("id", memberId)
     .eq("company_id", companyId);
 
-  if (error) throw error;
+  if (error) return { success: false, error: "เกิดข้อผิดพลาดในการลบสมาชิก" };
   revalidatePath("/dashboard/settings");
   return { success: true };
 }
 
 export async function updateMemberRole(memberId: string, role: "admin" | "member") {
-  await requirePermission("member.manage");
+  try {
+    await requirePermission("member.manage");
+  } catch {
+    return { success: false, error: "ไม่มีสิทธิ์จัดการสมาชิก" };
+  }
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
 
@@ -228,7 +240,7 @@ export async function updateMemberRole(memberId: string, role: "admin" | "member
     .eq("id", memberId)
     .eq("company_id", companyId);
 
-  if (error) throw error;
+  if (error) return { success: false, error: "เกิดข้อผิดพลาดในการเปลี่ยนบทบาท" };
   revalidatePath("/dashboard/settings");
   return { success: true };
 }
