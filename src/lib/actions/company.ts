@@ -170,7 +170,7 @@ export async function getCompanyMembers() {
 
   const { data, error } = await supabase
     .from("company_members")
-    .select("*, profiles(full_name, email, position, department)")
+    .select("*, profiles(full_name, email, position, department), departments(id, code, name)")
     .eq("company_id", companyId)
     .order("created_at");
 
@@ -179,6 +179,16 @@ export async function getCompanyMembers() {
 }
 
 export async function addMember(email: string, role: "admin" | "member" = "member", fullName?: string) {
+  // Normalize: strip invisible unicode, zero-width chars, then trim + lowercase
+  const normalizedEmail = email
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "")
+    .trim()
+    .toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
+  }
+
   try {
     await requirePermission("member.manage");
   } catch {
@@ -191,12 +201,12 @@ export async function addMember(email: string, role: "admin" | "member" = "membe
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
-    .eq("email", email)
+    .eq("email", normalizedEmail)
     .single();
 
   let userId: string;
   let invited = false;
-  const displayName = fullName || email.split("@")[0];
+  const displayName = fullName || normalizedEmail.split("@")[0];
 
   if (profile) {
     userId = profile.id;
@@ -210,7 +220,7 @@ export async function addMember(email: string, role: "admin" | "member" = "membe
     // ตรวจสอบว่ามี auth user อยู่แล้วหรือไม่
     const { data: userList } = await admin.auth.admin.listUsers();
     const existingAuthUser = userList?.users?.find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
+      (u) => u.email?.toLowerCase() === normalizedEmail
     );
 
     if (existingAuthUser) {
@@ -219,13 +229,13 @@ export async function addMember(email: string, role: "admin" | "member" = "membe
       await admin.from("profiles").upsert({
         id: userId,
         full_name: displayName,
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         department: "PUR",
         position: "พนักงาน",
       }, { onConflict: "id" });
     } else {
       // ผู้ใช้ใหม่ → เชิญผ่าน Supabase Auth (ส่งอีเมลตั้งรหัสผ่าน)
-      const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+      const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(normalizedEmail, {
         data: { full_name: displayName },
       });
 

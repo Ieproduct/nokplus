@@ -18,11 +18,19 @@ import { toast } from "sonner";
 interface Member {
   id: string;
   role: string;
+  org_level: number | null;
+  department_id: string | null;
+  max_approval_amount: number | null;
   profiles: {
     full_name: string;
     email: string;
-    position: string;
-    department: string;
+    position: string | null;
+    department: string | null;
+  } | null;
+  departments: {
+    id: string;
+    code: string;
+    name: string;
   } | null;
 }
 
@@ -87,6 +95,10 @@ export function MemberManager({ members }: { members: Member[] }) {
     }
   }
 
+  function getDepartmentName(m: Member) {
+    return m.departments?.name || m.profiles?.department || "-";
+  }
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -123,7 +135,9 @@ export function MemberManager({ members }: { members: Member[] }) {
             <TableRow>
               <TableHead>ชื่อ</TableHead>
               <TableHead>อีเมล</TableHead>
+              <TableHead>แผนก</TableHead>
               <TableHead>ตำแหน่ง</TableHead>
+              <TableHead>ระดับ</TableHead>
               <TableHead>บทบาท</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
@@ -133,7 +147,19 @@ export function MemberManager({ members }: { members: Member[] }) {
               <TableRow key={m.id}>
                 <TableCell className="font-medium">{m.profiles?.full_name || "-"}</TableCell>
                 <TableCell>{m.profiles?.email || "-"}</TableCell>
+                <TableCell>
+                  <span className={getDepartmentName(m) !== "-" ? "" : "text-muted-foreground"}>
+                    {getDepartmentName(m)}
+                  </span>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{m.profiles?.position || "-"}</TableCell>
+                <TableCell>
+                  {m.org_level ? (
+                    <Badge variant="outline" className="font-mono">L{m.org_level}</Badge>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   {m.role === "owner" ? (
                     <Badge>{ROLE_LABELS[m.role]}</Badge>

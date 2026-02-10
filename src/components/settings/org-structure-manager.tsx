@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateOrganizationLevel, updateMemberOrgLevel } from "@/lib/actions/organization";
+import { updateOrganizationLevel, updateMemberOrgLevel, addMemberToCompany, removeMemberFromCompany } from "@/lib/actions/organization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Check, X, Save } from "lucide-react";
+import { Pencil, Check, X, Save, Plus, Trash2, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 
 interface OrgLevel {
@@ -212,7 +212,22 @@ function MemberAssignmentSection({
   const [editMaxAmount, setEditMaxAmount] = useState<string>("");
   const [editReportsTo, setEditReportsTo] = useState<string>("");
   const [editDepartmentId, setEditDepartmentId] = useState<string>("");
+  const [editPosition, setEditPosition] = useState<string>("");
+  const [editRole, setEditRole] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  // Add member form state
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addCompanyId, setAddCompanyId] = useState<string>(companies[0]?.id || "");
+  const [addEmail, setAddEmail] = useState("");
+  const [addFullName, setAddFullName] = useState("");
+  const [addDepartmentId, setAddDepartmentId] = useState("");
+  const [addPosition, setAddPosition] = useState("");
+  const [addRole, setAddRole] = useState<"admin" | "member">("member");
+  const [adding, setAdding] = useState(false);
+
+  // Delete state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function startEdit(member: MemberWithProfile) {
     setEditingId(member.id);
@@ -220,6 +235,8 @@ function MemberAssignmentSection({
     setEditMaxAmount(member.max_approval_amount ? String(member.max_approval_amount) : "");
     setEditReportsTo(member.reports_to_member_id || "");
     setEditDepartmentId(member.department_id || "");
+    setEditPosition(member.profiles?.position || "");
+    setEditRole(member.role);
   }
 
   function cancelEdit() {
@@ -269,11 +286,14 @@ function MemberAssignmentSection({
   async function saveEdit(memberId: string) {
     setSaving(true);
     try {
+      const member = members.find((m) => m.id === memberId);
       const result = await updateMemberOrgLevel(memberId, {
         org_level: editLevel ? parseInt(editLevel) : null,
         max_approval_amount: editMaxAmount ? parseFloat(editMaxAmount) : null,
         reports_to_member_id: editReportsTo || null,
         department_id: editDepartmentId || null,
+        position: editPosition || null,
+        role: member?.role === "owner" ? undefined : (editRole as "admin" | "member"),
       });
       if (result.success) {
         toast.success("บันทึกเรียบร้อย");
@@ -285,6 +305,53 @@ function MemberAssignmentSection({
       toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAddMember() {
+    if (!addCompanyId || !addEmail) {
+      toast.error("กรุณากรอกบริษัทและอีเมล");
+      return;
+    }
+    setAdding(true);
+    try {
+      const result = await addMemberToCompany(addCompanyId, addEmail, {
+        role: addRole,
+        fullName: addFullName || undefined,
+        departmentId: addDepartmentId || undefined,
+        position: addPosition || undefined,
+      });
+      if (result.success) {
+        toast.success(result.invited ? "เชิญสมาชิกใหม่เรียบร้อย (ส่งอีเมลแล้ว)" : "เพิ่มสมาชิกเรียบร้อย");
+        setAddEmail("");
+        setAddFullName("");
+        setAddDepartmentId("");
+        setAddPosition("");
+        setAddRole("member");
+        setShowAddForm(false);
+      } else {
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+      }
+    } catch {
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleRemoveMember(memberId: string) {
+    setDeletingId(memberId);
+    try {
+      const result = await removeMemberFromCompany(memberId);
+      if (result.success) {
+        toast.success("ลบสมาชิกเรียบร้อย");
+      } else {
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+      }
+    } catch {
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -310,22 +377,131 @@ function MemberAssignmentSection({
     return member.departments?.name || member.profiles?.department || "-";
   }
 
+  function getRoleBadge(role: string) {
+    switch (role) {
+      case "owner":
+        return <Badge variant="default">เจ้าของ</Badge>;
+      case "admin":
+        return <Badge variant="secondary">ผู้ดูแล</Badge>;
+      default:
+        return <Badge variant="outline">สมาชิก</Badge>;
+    }
+  }
+
   const multiCompany = companies.length > 1;
+  const addDepartments = getDepartmentsForCompany(addCompanyId);
+  const colSpan = multiCompany ? 9 : 8;
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <h3 className="font-medium mb-4">กำหนดระดับสมาชิก ({members.length} คน)</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-medium">กำหนดระดับสมาชิก ({members.length} คน)</h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddForm(!showAddForm)}
+          >
+            {showAddForm ? <ChevronUp className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+            เพิ่มสมาชิก
+          </Button>
+        </div>
+
+        {showAddForm && (
+          <div className="border rounded-lg p-4 mb-4 bg-muted/30 space-y-3">
+            <h4 className="text-sm font-medium">เพิ่มสมาชิกใหม่</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {multiCompany && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">บริษัท</label>
+                  <Select value={addCompanyId} onValueChange={(v) => { setAddCompanyId(v); setAddDepartmentId(""); }}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="เลือกบริษัท" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name_th}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">อีเมล *</label>
+                <Input
+                  type="email"
+                  value={addEmail}
+                  onChange={(e) => setAddEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  className="h-8"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">ชื่อ-นามสกุล</label>
+                <Input
+                  value={addFullName}
+                  onChange={(e) => setAddFullName(e.target.value)}
+                  placeholder="ชื่อ นามสกุล"
+                  className="h-8"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">แผนก</label>
+                <Select value={addDepartmentId || "__none__"} onValueChange={(v) => setAddDepartmentId(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="เลือกแผนก" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">-- ไม่ระบุ --</SelectItem>
+                    {addDepartments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">ตำแหน่ง</label>
+                <Input
+                  value={addPosition}
+                  onChange={(e) => setAddPosition(e.target.value)}
+                  placeholder="ตำแหน่งงาน"
+                  className="h-8"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">บทบาท</label>
+                <Select value={addRole} onValueChange={(v) => setAddRole(v as "admin" | "member")}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">สมาชิก</SelectItem>
+                    <SelectItem value="admin">ผู้ดูแล</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>ยกเลิก</Button>
+              <Button size="sm" onClick={handleAddMember} disabled={adding || !addEmail}>
+                {adding ? "กำลังเพิ่ม..." : "เพิ่มสมาชิก"}
+              </Button>
+            </div>
+          </div>
+        )}
+
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>ชื่อ</TableHead>
               {multiCompany && <TableHead>บริษัท</TableHead>}
               <TableHead>แผนก</TableHead>
+              <TableHead>ตำแหน่ง</TableHead>
+              <TableHead>บทบาท</TableHead>
               <TableHead>ระดับ</TableHead>
               <TableHead>รายงานตรงต่อ</TableHead>
               <TableHead>วงเงินอนุมัติสูงสุด</TableHead>
-              <TableHead className="w-24"></TableHead>
+              <TableHead className="w-28"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -338,6 +514,7 @@ function MemberAssignmentSection({
               } | null;
 
               const memberDepartments = getDepartmentsForCompany(member.company_id);
+              const isOwner = member.role === "owner";
 
               return (
                 <TableRow key={member.id}>
@@ -371,6 +548,37 @@ function MemberAssignmentSection({
                       <span className={getDepartmentName(member) !== "-" ? "" : "text-muted-foreground"}>
                         {getDepartmentName(member)}
                       </span>
+                    )}
+                  </TableCell>
+                  {/* Position column */}
+                  <TableCell>
+                    {editingId === member.id ? (
+                      <Input
+                        value={editPosition}
+                        onChange={(e) => setEditPosition(e.target.value)}
+                        className="h-8 w-36"
+                        placeholder="ตำแหน่ง"
+                      />
+                    ) : (
+                      <span className={profile?.position ? "" : "text-muted-foreground"}>
+                        {profile?.position || "-"}
+                      </span>
+                    )}
+                  </TableCell>
+                  {/* Role column */}
+                  <TableCell>
+                    {editingId === member.id && !isOwner ? (
+                      <Select value={editRole} onValueChange={setEditRole}>
+                        <SelectTrigger className="h-8 w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="member">สมาชิก</SelectItem>
+                          <SelectItem value="admin">ผู้ดูแล</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      getRoleBadge(member.role)
                     )}
                   </TableCell>
                   <TableCell>
@@ -462,9 +670,37 @@ function MemberAssignmentSection({
                         </Button>
                       </div>
                     ) : (
-                      <Button variant="ghost" size="icon" onClick={() => startEdit(member)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => startEdit(member)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {!isOwner && (
+                          deletingId === member.id ? (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveMember(member.id)}
+                                title="ยืนยันลบ"
+                              >
+                                <Check className="h-4 w-4 text-destructive" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => setDeletingId(null)} title="ยกเลิก">
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeletingId(member.id)}
+                              title="ลบสมาชิก"
+                            >
+                              <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                            </Button>
+                          )
+                        )}
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
@@ -472,7 +708,7 @@ function MemberAssignmentSection({
             })}
             {members.length === 0 && (
               <TableRow>
-                <TableCell colSpan={multiCompany ? 7 : 6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={colSpan} className="text-center text-muted-foreground py-8">
                   ยังไม่มีสมาชิก
                 </TableCell>
               </TableRow>

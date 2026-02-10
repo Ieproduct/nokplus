@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getActiveCompanyId, getUserCompanyIds } from "@/lib/company-context";
 import { requirePermission } from "@/lib/permissions";
@@ -137,6 +137,8 @@ export async function updateMemberOrgLevel(
     max_approval_amount: number | null;
     reports_to_member_id?: string | null;
     department_id?: string | null;
+    position?: string | null;
+    role?: "admin" | "member";
   }
 ) {
   try {
@@ -180,6 +182,23 @@ export async function updateMemberOrgLevel(
     }
   }
 
+  // Fetch member to get user_id and current role
+  const { data: member } = await supabase
+    .from("company_members")
+    .select("user_id, role")
+    .eq("id", memberId)
+    .single();
+
+  if (!member) return { success: false, error: "ไม่พบสมาชิก" };
+
+  // Update position in profiles if provided
+  if (input.position !== undefined) {
+    await supabase
+      .from("profiles")
+      .update({ position: input.position ?? undefined })
+      .eq("id", member.user_id);
+  }
+
   const updateData: Record<string, unknown> = {
     org_level: input.org_level,
     max_approval_amount: input.max_approval_amount,
@@ -190,6 +209,10 @@ export async function updateMemberOrgLevel(
   if (input.department_id !== undefined) {
     updateData.department_id = input.department_id;
   }
+  // Update role if provided and not owner
+  if (input.role !== undefined && member.role !== "owner") {
+    updateData.role = input.role;
+  }
 
   const { error } = await supabase
     .from("company_members")
@@ -198,6 +221,7 @@ export async function updateMemberOrgLevel(
 
   if (error) return { success: false, error: "เกิดข้อผิดพลาดในการบันทึก" };
   revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/settings");
   return { success: true };
 }
 
@@ -249,4 +273,144 @@ export async function getReportsToChain(memberId: string) {
   }
 
   return chain;
+}
+
+export async function addMemberToCompany(
+  companyId: string,
+  email: string,
+  options?: {
+    role?: "admin" | "member";
+    fullName?: string;
+    departmentId?: string;
+    position?: string;
+  }
+) {
+  try {
+    await requirePermission("settings.organization");
+  } catch {
+    return { success: false, error: "ไม่มีสิทธิ์ตั้งค่าโครงสร้างองค์กร" };
+  }
+
+  const supabase = await createClient();
+  const companyIds = await getUserCompanyIds();
+
+  if (!companyIds.includes(companyId)) {
+    return { success: false, error: "ไม่มีสิทธิ์เข้าถึงบริษัทนี้" };
+  }
+
+  // Normalize email
+  const normalizedEmail = email
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "")
+    .trim()
+    .toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
+  }
+
+  const role = options?.role || "member";
+  const displayName = options?.fullName || normalizedEmail.split("@")[0];
+
+  // Find or create user
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .single();
+
+  let userId: string;
+  let invited = false;
+
+  if (profile) {
+    userId = profile.id;
+    if (options?.fullName) {
+      await supabase.from("profiles").update({ full_name: options.fullName }).eq("id", userId);
+    }
+  } else {
+    const admin = createAdminClient();
+    const { data: userList } = await admin.auth.admin.listUsers();
+    const existingAuthUser = userList?.users?.find(
+      (u) => u.email?.toLowerCase() === normalizedEmail
+    );
+
+    if (existingAuthUser) {
+      userId = existingAuthUser.id;
+      await admin.from("profiles").upsert({
+        id: userId,
+        full_name: displayName,
+        email: normalizedEmail,
+        department: "PUR",
+        position: options?.position || "พนักงาน",
+      }, { onConflict: "id" });
+    } else {
+      const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(normalizedEmail, {
+        data: { full_name: displayName },
+      });
+      if (inviteError) {
+        return { success: false, error: `ไม่สามารถเชิญผู้ใช้ได้: ${inviteError.message}` };
+      }
+      userId = inviteData.user.id;
+      invited = true;
+    }
+  }
+
+  // Insert company member
+  const { error } = await supabase.from("company_members").insert({
+    company_id: companyId,
+    user_id: userId,
+    role,
+    department_id: options?.departmentId || null,
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { success: false, error: "ผู้ใช้เป็นสมาชิกบริษัทนี้อยู่แล้ว" };
+    }
+    return { success: false, error: "เกิดข้อผิดพลาดในการเพิ่มสมาชิก" };
+  }
+
+  // Update position if provided
+  if (options?.position) {
+    await supabase.from("profiles").update({ position: options.position }).eq("id", userId);
+  }
+
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/settings");
+  return { success: true, invited };
+}
+
+export async function removeMemberFromCompany(memberId: string) {
+  try {
+    await requirePermission("settings.organization");
+  } catch {
+    return { success: false, error: "ไม่มีสิทธิ์ตั้งค่าโครงสร้างองค์กร" };
+  }
+
+  const supabase = await createClient();
+  const companyIds = await getUserCompanyIds();
+
+  // Fetch member to validate access and check role
+  const { data: member } = await supabase
+    .from("company_members")
+    .select("id, company_id, role")
+    .eq("id", memberId)
+    .single();
+
+  if (!member || !companyIds.includes(member.company_id)) {
+    return { success: false, error: "ไม่พบสมาชิกหรือไม่มีสิทธิ์" };
+  }
+
+  if (member.role === "owner") {
+    return { success: false, error: "ไม่สามารถลบเจ้าของบริษัทได้" };
+  }
+
+  const { error } = await supabase
+    .from("company_members")
+    .delete()
+    .eq("id", memberId);
+
+  if (error) return { success: false, error: "เกิดข้อผิดพลาดในการลบสมาชิก" };
+  revalidatePath("/dashboard/organization");
+  revalidatePath("/dashboard/settings");
+  return { success: true };
 }
