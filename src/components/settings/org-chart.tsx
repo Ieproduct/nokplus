@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { DragDropProvider, useDraggable, useDroppable, useDragOperation } from "@dnd-kit/react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronRight, ChevronDown, Users, AlertCircle, Building2, Filter } from "lucide-react";
+import { ChevronRight, ChevronDown, Users, AlertCircle, Building2, Filter, GripVertical, UserMinus } from "lucide-react";
+import { toast } from "sonner";
+import { updateMemberOrgLevel } from "@/lib/actions/organization";
 
 interface CompanyInfo {
   id: string;
@@ -124,6 +127,21 @@ function countDescendants(node: TreeNode): number {
   return count;
 }
 
+function getDescendantIds(memberId: string, members: MemberWithProfile[]): Set<string> {
+  const descendants = new Set<string>();
+  const stack = [memberId];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    for (const m of members) {
+      if (m.reports_to_member_id === current && !descendants.has(m.id)) {
+        descendants.add(m.id);
+        stack.push(m.id);
+      }
+    }
+  }
+  return descendants;
+}
+
 export function OrgChart({
   members,
   companies,
@@ -135,6 +153,9 @@ export function OrgChart({
 }) {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | null>(null);
+  const [localMembers, setLocalMembers] = useState(members);
+
+  useEffect(() => setLocalMembers(members), [members]);
 
   // Departments scoped to selected company
   const visibleDepartments = useMemo(() => {
@@ -148,9 +169,9 @@ export function OrgChart({
     setSelectedDepartmentId(null);
   };
 
-  // Filter members
+  // Filter members using localMembers for optimistic updates
   const filteredMembers = useMemo(() => {
-    let result = members;
+    let result = localMembers;
     if (selectedCompanyId) {
       result = result.filter((m) => m.company_id === selectedCompanyId);
     }
@@ -158,10 +179,72 @@ export function OrgChart({
       result = result.filter((m) => m.department_id === selectedDepartmentId);
     }
     return result;
-  }, [members, selectedCompanyId, selectedDepartmentId]);
+  }, [localMembers, selectedCompanyId, selectedDepartmentId]);
 
   const { roots, orphans } = buildTree(filteredMembers);
   const showCompanyBadge = !selectedCompanyId && companies.length > 1;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleDragEnd = useCallback((event: any) => {
+    const { operation, canceled } = event;
+    if (canceled) return;
+
+    const source = operation.source;
+    const target = operation.target;
+    if (!source || !target) return;
+
+    const draggedMemberId = source.data?.memberId as string | undefined;
+    const targetId = target.id as string;
+    if (!draggedMemberId) return;
+
+    const isOrphanZone = targetId === "orphan-zone";
+    const newManagerId = isOrphanZone ? null : (target.data?.memberId as string | undefined) ?? null;
+
+    // Self-drop check
+    if (newManagerId === draggedMemberId) return;
+
+    // Same manager check
+    const currentMember = localMembers.find((m) => m.id === draggedMemberId);
+    if (!currentMember) return;
+    if (currentMember.reports_to_member_id === newManagerId) return;
+
+    // Circular ref check (client-side)
+    if (newManagerId) {
+      const descendants = getDescendantIds(draggedMemberId, localMembers);
+      if (descendants.has(newManagerId)) {
+        toast.error("ไม่สามารถรายงานตรงต่อผู้ใต้บังคับบัญชาได้ (วงจร)");
+        return;
+      }
+    }
+
+    // Optimistic update
+    const prevMembers = [...localMembers];
+    setLocalMembers((prev) =>
+      prev.map((m) => (m.id === draggedMemberId ? { ...m, reports_to_member_id: newManagerId } : m))
+    );
+
+    const targetName = newManagerId
+      ? localMembers.find((m) => m.id === newManagerId)?.profiles?.full_name || "ไม่ทราบ"
+      : null;
+
+    toast.success(
+      isOrphanZone
+        ? `ยกเลิกหัวหน้าของ ${currentMember.profiles?.full_name || "-"}`
+        : `ย้าย ${currentMember.profiles?.full_name || "-"} ไปอยู่ใต้ ${targetName}`
+    );
+
+    // Server action
+    updateMemberOrgLevel(draggedMemberId, {
+      org_level: currentMember.org_level,
+      max_approval_amount: currentMember.max_approval_amount,
+      reports_to_member_id: newManagerId,
+    }).then((result) => {
+      if (!result.success) {
+        setLocalMembers(prevMembers);
+        toast.error(result.error || "เกิดข้อผิดพลาด");
+      }
+    });
+  }, [localMembers]);
 
   if (members.length === 0) {
     return (
@@ -227,31 +310,72 @@ export function OrgChart({
           </div>
         )}
 
-        <div className="space-y-0.5">
-          {roots.map((node) => (
-            <TreeNodeRow key={node.member.id} node={node} depth={0} showCompanyBadge={showCompanyBadge} />
-          ))}
-        </div>
-
-        {orphans.length > 0 && (
-          <div className="mt-6 border-t pt-4">
-            <div className="flex items-center gap-2 mb-3 text-muted-foreground">
-              <AlertCircle className="h-4 w-4" />
-              <span className="text-sm font-medium">ยังไม่กำหนดหัวหน้า ({orphans.length} คน)</span>
-            </div>
-            <div className="space-y-0.5">
-              {orphans.map((m) => (
-                <MemberRow key={m.id} member={m} depth={0} childCount={0} showCompanyBadge={showCompanyBadge} />
-              ))}
-            </div>
-          </div>
-        )}
+        <DragDropProvider onDragEnd={handleDragEnd}>
+          <OrgChartTree roots={roots} orphans={orphans} showCompanyBadge={showCompanyBadge} />
+        </DragDropProvider>
 
         {filteredMembers.length === 0 && members.length > 0 && (
           <p className="text-center text-muted-foreground py-8">ไม่มีสมาชิกที่ตรงกับตัวกรอง</p>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function OrgChartTree({
+  roots,
+  orphans,
+  showCompanyBadge,
+}: {
+  roots: TreeNode[];
+  orphans: MemberWithProfile[];
+  showCompanyBadge: boolean;
+}) {
+  const { source } = useDragOperation();
+  const isDragActive = !!source;
+
+  return (
+    <>
+      <div className="space-y-0.5">
+        {roots.map((node) => (
+          <TreeNodeRow key={node.member.id} node={node} depth={0} showCompanyBadge={showCompanyBadge} />
+        ))}
+      </div>
+
+      {orphans.length > 0 && (
+        <div className="mt-6 border-t pt-4">
+          <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+            <AlertCircle className="h-4 w-4" />
+            <span className="text-sm font-medium">ยังไม่กำหนดหัวหน้า ({orphans.length} คน)</span>
+          </div>
+          <div className="space-y-0.5">
+            {orphans.map((m) => (
+              <MemberRow key={m.id} member={m} depth={0} childCount={0} showCompanyBadge={showCompanyBadge} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isDragActive && <OrphanDropZone />}
+    </>
+  );
+}
+
+function OrphanDropZone() {
+  const { ref, isDropTarget } = useDroppable({ id: "orphan-zone" });
+
+  return (
+    <div
+      ref={ref}
+      className={`mt-4 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed py-6 transition-colors ${
+        isDropTarget
+          ? "border-red-400 bg-red-50 text-red-600"
+          : "border-muted-foreground/30 text-muted-foreground"
+      }`}
+    >
+      <UserMinus className="h-5 w-5" />
+      <span className="text-sm font-medium">วางที่นี่เพื่อยกเลิกหัวหน้า</span>
+    </div>
   );
 }
 
@@ -301,6 +425,23 @@ function MemberRow({
   childCount: number;
   showCompanyBadge: boolean;
 }) {
+  const { ref: draggableRef, handleRef, isDragSource } = useDraggable({
+    id: `drag-${member.id}`,
+    data: { memberId: member.id },
+  });
+  const { ref: droppableRef, isDropTarget } = useDroppable({
+    id: `drop-${member.id}`,
+    data: { memberId: member.id },
+  });
+
+  const combinedRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      draggableRef(el);
+      droppableRef(el);
+    },
+    [draggableRef, droppableRef]
+  );
+
   const profile = member.profiles;
   const initials = getInitials(profile?.full_name || "?");
   const levelColor = member.org_level ? getLevelColor(member.org_level) : "bg-gray-100 text-gray-600";
@@ -308,9 +449,19 @@ function MemberRow({
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors flex-1 min-w-0"
+      ref={combinedRef}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors flex-1 min-w-0 ${
+        isDragSource
+          ? "opacity-40"
+          : isDropTarget
+            ? "ring-2 ring-blue-500 bg-blue-50"
+            : "hover:bg-muted/50"
+      }`}
       style={{ paddingLeft: depth > 0 ? `${depth * 24 + 12}px` : undefined }}
     >
+      <div ref={handleRef} className="cursor-grab active:cursor-grabbing shrink-0 text-muted-foreground/50 hover:text-muted-foreground">
+        <GripVertical className="h-4 w-4" />
+      </div>
       <div
         className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium shrink-0 ${levelColor}`}
       >
