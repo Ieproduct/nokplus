@@ -30,6 +30,7 @@ interface MemberWithProfile {
   role: string;
   org_level: number | null;
   max_approval_amount: number | null;
+  reports_to_member_id: string | null;
   profiles: {
     full_name: string;
     email: string;
@@ -172,16 +173,40 @@ function MemberAssignmentSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLevel, setEditLevel] = useState<string>("");
   const [editMaxAmount, setEditMaxAmount] = useState<string>("");
+  const [editReportsTo, setEditReportsTo] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   function startEdit(member: MemberWithProfile) {
     setEditingId(member.id);
     setEditLevel(member.org_level ? String(member.org_level) : "");
     setEditMaxAmount(member.max_approval_amount ? String(member.max_approval_amount) : "");
+    setEditReportsTo(member.reports_to_member_id || "");
   }
 
   function cancelEdit() {
     setEditingId(null);
+  }
+
+  // Get all descendant member IDs for a given member (to prevent circular refs)
+  function getDescendantIds(memberId: string): Set<string> {
+    const descendants = new Set<string>();
+    const queue = [memberId];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const m of members) {
+        if (m.reports_to_member_id === current && !descendants.has(m.id)) {
+          descendants.add(m.id);
+          queue.push(m.id);
+        }
+      }
+    }
+    return descendants;
+  }
+
+  // Get available "reports to" options for a member (exclude self + descendants)
+  function getReportsToOptions(memberId: string) {
+    const descendants = getDescendantIds(memberId);
+    return members.filter((m) => m.id !== memberId && !descendants.has(m.id));
   }
 
   async function saveEdit(memberId: string) {
@@ -190,6 +215,7 @@ function MemberAssignmentSection({
       const result = await updateMemberOrgLevel(memberId, {
         org_level: editLevel ? parseInt(editLevel) : null,
         max_approval_amount: editMaxAmount ? parseFloat(editMaxAmount) : null,
+        reports_to_member_id: editReportsTo || null,
       });
       if (result.success) {
         toast.success("บันทึกเรียบร้อย");
@@ -210,6 +236,12 @@ function MemberAssignmentSection({
     return level ? `L${orgLevel}: ${level.label_th}` : `L${orgLevel}`;
   }
 
+  function getManagerName(reportsToId: string | null) {
+    if (!reportsToId) return "-";
+    const manager = members.find((m) => m.id === reportsToId);
+    return manager?.profiles?.full_name || "-";
+  }
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -218,9 +250,9 @@ function MemberAssignmentSection({
           <TableHeader>
             <TableRow>
               <TableHead>ชื่อ</TableHead>
-              <TableHead>อีเมล</TableHead>
               <TableHead>แผนก</TableHead>
               <TableHead>ระดับ</TableHead>
+              <TableHead>รายงานตรงต่อ</TableHead>
               <TableHead>วงเงินอนุมัติสูงสุด</TableHead>
               <TableHead className="w-24"></TableHead>
             </TableRow>
@@ -236,13 +268,17 @@ function MemberAssignmentSection({
 
               return (
                 <TableRow key={member.id}>
-                  <TableCell className="font-medium">{profile?.full_name || "-"}</TableCell>
-                  <TableCell className="text-muted-foreground">{profile?.email || "-"}</TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{profile?.full_name || "-"}</div>
+                      <div className="text-xs text-muted-foreground">{profile?.email || ""}</div>
+                    </div>
+                  </TableCell>
                   <TableCell>{profile?.department || "-"}</TableCell>
                   <TableCell>
                     {editingId === member.id ? (
                       <Select value={editLevel || "__none__"} onValueChange={(v) => setEditLevel(v === "__none__" ? "" : v)}>
-                        <SelectTrigger className="h-8 w-48">
+                        <SelectTrigger className="h-8 w-40">
                           <SelectValue placeholder="เลือกระดับ" />
                         </SelectTrigger>
                         <SelectContent>
@@ -264,11 +300,33 @@ function MemberAssignmentSection({
                   </TableCell>
                   <TableCell>
                     {editingId === member.id ? (
+                      <Select value={editReportsTo || "__none__"} onValueChange={(v) => setEditReportsTo(v === "__none__" ? "" : v)}>
+                        <SelectTrigger className="h-8 w-48">
+                          <SelectValue placeholder="เลือกหัวหน้า" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">-- ไม่มี --</SelectItem>
+                          {getReportsToOptions(member.id).map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.profiles?.full_name || m.user_id}
+                              {m.org_level ? ` (L${m.org_level})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className={member.reports_to_member_id ? "" : "text-muted-foreground"}>
+                        {getManagerName(member.reports_to_member_id)}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {editingId === member.id ? (
                       <Input
                         type="number"
                         value={editMaxAmount}
                         onChange={(e) => setEditMaxAmount(e.target.value)}
-                        className="h-8 w-40"
+                        className="h-8 w-36"
                         placeholder="ว่าง = ไม่จำกัด"
                       />
                     ) : (

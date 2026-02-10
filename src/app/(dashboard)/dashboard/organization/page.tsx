@@ -16,12 +16,12 @@ export default async function OrganizationPage() {
         <div>
           <h1 className="text-2xl font-bold">โครงสร้างองค์กร</h1>
           <p className="text-sm text-muted-foreground">
-            จัดการระดับตำแหน่ง L1-L9 และกำหนดระดับให้สมาชิก
+            จัดการระดับตำแหน่ง L1-L9 กำหนดสายบังคับบัญชา และระดับให้สมาชิก
           </p>
         </div>
       </div>
 
-      <OrgChart levels={levels} />
+      <OrgChart members={members} />
       <OrgStructureManager levels={levels} members={members} />
     </div>
   );

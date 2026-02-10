@@ -512,6 +512,7 @@ export type Database = {
           id: string
           max_approval_amount: number | null
           org_level: number | null
+          reports_to_member_id: string | null
           role: Database["public"]["Enums"]["company_role"]
           user_id: string
         }
@@ -521,6 +522,7 @@ export type Database = {
           id?: string
           max_approval_amount?: number | null
           org_level?: number | null
+          reports_to_member_id?: string | null
           role?: Database["public"]["Enums"]["company_role"]
           user_id: string
         }
@@ -530,6 +532,7 @@ export type Database = {
           id?: string
           max_approval_amount?: number | null
           org_level?: number | null
+          reports_to_member_id?: string | null
           role?: Database["public"]["Enums"]["company_role"]
           user_id?: string
         }
@@ -539,6 +542,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_reports_to_member_id_fkey"
+            columns: ["reports_to_member_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
             referencedColumns: ["id"]
           },
           {

@@ -156,8 +156,9 @@ export async function resolveApprovalChain(
 }
 
 /**
- * Auto-escalate: สร้าง approval chain อัตโนมัติจาก org_level ของ submitter ขึ้นไป
- * หาผู้อนุมัติที่ level สูงกว่า submitter จนเจอคนที่ max_approval_amount >= totalAmount
+ * Auto-escalate: สร้าง approval chain อัตโนมัติ
+ * 1. ใช้ reports_to_member_id chain (ถ้ามี)
+ * 2. Fallback: ใช้ org_level เดิม (ถ้าไม่มี reports_to chain)
  */
 export async function resolveAutoEscalateChain(
   companyId: string,
@@ -166,17 +167,84 @@ export async function resolveAutoEscalateChain(
 ): Promise<ApprovalChainStep[]> {
   const supabase = await createClient();
 
-  // หา submitter's org_level
+  // หา submitter's company_member record
   const { data: submitter } = await supabase
     .from("company_members")
-    .select("org_level")
+    .select("id, org_level, reports_to_member_id")
     .eq("company_id", companyId)
     .eq("user_id", submitterUserId)
     .single();
 
-  const submitterLevel = submitter?.org_level || 1;
+  if (!submitter) return [];
 
-  // ดึงสมาชิกที่ org_level > submitterLevel เรียงจากต่ำไปสูง
+  // ถ้ามี reports_to_member_id → ใช้ reports_to chain
+  if (submitter.reports_to_member_id) {
+    const chain = await resolveReportsToChain(supabase, companyId, submitter.id, totalAmount);
+    if (chain.length > 0) return chain;
+  }
+
+  // Fallback: ใช้ org_level เดิม
+  return resolveOrgLevelChain(supabase, companyId, submitter.org_level || 1, totalAmount);
+}
+
+/**
+ * เดินตาม reports_to_member_id chain จาก submitter ขึ้นไป
+ */
+async function resolveReportsToChain(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  companyId: string,
+  submitterMemberId: string,
+  totalAmount: number
+): Promise<ApprovalChainStep[]> {
+  // ดึง members ทั้งหมดเพื่อสร้าง map
+  const { data: allMembers, error } = await supabase
+    .from("company_members")
+    .select("id, user_id, org_level, max_approval_amount, reports_to_member_id, profiles(full_name)")
+    .eq("company_id", companyId);
+
+  if (error || !allMembers) return [];
+
+  const memberMap = new Map(allMembers.map((m) => [m.id, m]));
+  const chain: ApprovalChainStep[] = [];
+  const visited = new Set<string>();
+
+  let currentId: string | null = memberMap.get(submitterMemberId)?.reports_to_member_id ?? null;
+
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const member = memberMap.get(currentId);
+    if (!member) break;
+
+    const profileData = member.profiles as unknown as { full_name: string } | null;
+
+    chain.push({
+      step: chain.length + 1,
+      userId: member.user_id,
+      label: profileData?.full_name || `Level ${member.org_level || "?"}`,
+    });
+
+    // ถ้า max_approval_amount = null → unlimited (จบ chain)
+    // ถ้า max_approval_amount >= totalAmount → จบ chain
+    const maxAmount = member.max_approval_amount ? Number(member.max_approval_amount) : null;
+    if (maxAmount === null || maxAmount >= totalAmount) {
+      break;
+    }
+
+    currentId = member.reports_to_member_id;
+  }
+
+  return chain;
+}
+
+/**
+ * Fallback: org_level-based chain (เดิม)
+ */
+async function resolveOrgLevelChain(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  companyId: string,
+  submitterLevel: number,
+  totalAmount: number
+): Promise<ApprovalChainStep[]> {
   const { data: candidates, error } = await supabase
     .from("company_members")
     .select("user_id, org_level, max_approval_amount, profiles(full_name)")
@@ -187,7 +255,6 @@ export async function resolveAutoEscalateChain(
   if (error) throw error;
   if (!candidates || candidates.length === 0) return [];
 
-  // สร้าง chain: เพิ่มแต่ละ level จนเจอคนที่ max_approval_amount >= totalAmount
   const chain: ApprovalChainStep[] = [];
   const seenLevels = new Set<number>();
 
@@ -203,8 +270,6 @@ export async function resolveAutoEscalateChain(
       label: profileData?.full_name || `Level ${c.org_level}`,
     });
 
-    // ถ้า max_approval_amount = null → unlimited (จบ chain)
-    // ถ้า max_approval_amount >= totalAmount → จบ chain
     const maxAmount = c.max_approval_amount ? Number(c.max_approval_amount) : null;
     if (maxAmount === null || maxAmount >= totalAmount) {
       break;
