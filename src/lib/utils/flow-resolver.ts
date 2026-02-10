@@ -189,18 +189,18 @@ export async function resolveAutoEscalateChain(
 
 /**
  * เดินตาม reports_to_member_id chain จาก submitter ขึ้นไป
+ * ดึง members ทุกบริษัทเพื่อให้เดิน chain ข้ามบริษัทได้
  */
 async function resolveReportsToChain(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  companyId: string,
+  _companyId: string,
   submitterMemberId: string,
   totalAmount: number
 ): Promise<ApprovalChainStep[]> {
-  // ดึง members ทั้งหมดเพื่อสร้าง map
+  // ดึง members ทุกบริษัทเพื่อให้เดิน chain ข้ามบริษัทได้
   const { data: allMembers, error } = await supabase
     .from("company_members")
-    .select("id, user_id, org_level, max_approval_amount, reports_to_member_id, profiles(full_name)")
-    .eq("company_id", companyId);
+    .select("id, user_id, org_level, max_approval_amount, reports_to_member_id, profiles(full_name)");
 
   if (error || !allMembers) return [];
 

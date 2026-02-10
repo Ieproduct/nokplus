@@ -1,12 +1,13 @@
-import { getOrganizationLevels, getOrganizationMembers } from "@/lib/actions/organization";
+import { getOrganizationLevels, getAllOrganizationMembers, getOrganizationFilterData } from "@/lib/actions/organization";
 import { OrgChart } from "@/components/settings/org-chart";
 import { OrgStructureManager } from "@/components/settings/org-structure-manager";
 import { Network } from "lucide-react";
 
 export default async function OrganizationPage() {
-  const [levels, members] = await Promise.all([
+  const [levels, members, filterData] = await Promise.all([
     getOrganizationLevels(),
-    getOrganizationMembers(),
+    getAllOrganizationMembers(),
+    getOrganizationFilterData(),
   ]);
 
   return (
@@ -21,8 +22,17 @@ export default async function OrganizationPage() {
         </div>
       </div>
 
-      <OrgChart members={members} />
-      <OrgStructureManager levels={levels} members={members} />
+      <OrgChart
+        members={members}
+        companies={filterData.companies}
+        departments={filterData.departments}
+      />
+      <OrgStructureManager
+        levels={levels}
+        members={members}
+        companies={filterData.companies}
+        departments={filterData.departments}
+      />
     </div>
   );
 }

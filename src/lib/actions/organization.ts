@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { getActiveCompanyId } from "@/lib/company-context";
+import { getActiveCompanyId, getUserCompanyIds } from "@/lib/company-context";
 import { requirePermission } from "@/lib/permissions";
 
 export async function getOrganizationLevels() {
@@ -70,12 +70,64 @@ export async function getOrganizationMembers() {
 
   const { data, error } = await supabase
     .from("company_members")
-    .select("*, profiles(full_name, email, position, department)")
+    .select("*, profiles(full_name, email, position, department), companies(name_th, name_en), departments(id, code, name)")
     .eq("company_id", companyId)
     .order("org_level", { ascending: true, nullsFirst: false });
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Fetch members from ALL companies the user has access to.
+ * Used for cross-company org chart.
+ */
+export async function getAllOrganizationMembers() {
+  const supabase = await createClient();
+  const companyIds = await getUserCompanyIds();
+
+  if (companyIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("company_members")
+    .select("*, profiles(full_name, email, position, department), companies(name_th, name_en), departments(id, code, name)")
+    .in("company_id", companyIds)
+    .order("org_level", { ascending: true, nullsFirst: false });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Return companies and departments for filter UI.
+ */
+export async function getOrganizationFilterData() {
+  const supabase = await createClient();
+  const companyIds = await getUserCompanyIds();
+
+  if (companyIds.length === 0) return { companies: [], departments: [] };
+
+  const [companiesResult, departmentsResult] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("id, name_th, name_en")
+      .in("id", companyIds)
+      .order("name_th"),
+    supabase
+      .from("departments")
+      .select("id, code, name, company_id")
+      .in("company_id", companyIds)
+      .eq("is_active", true)
+      .order("name"),
+  ]);
+
+  if (companiesResult.error) throw companiesResult.error;
+  if (departmentsResult.error) throw departmentsResult.error;
+
+  return {
+    companies: companiesResult.data,
+    departments: departmentsResult.data,
+  };
 }
 
 export async function updateMemberOrgLevel(
@@ -84,6 +136,7 @@ export async function updateMemberOrgLevel(
     org_level: number | null;
     max_approval_amount: number | null;
     reports_to_member_id?: string | null;
+    department_id?: string | null;
   }
 ) {
   try {
@@ -92,7 +145,7 @@ export async function updateMemberOrgLevel(
     return { success: false, error: "ไม่มีสิทธิ์ตั้งค่าโครงสร้างองค์กร" };
   }
   const supabase = await createClient();
-  const companyId = await getActiveCompanyId();
+  const companyIds = await getUserCompanyIds();
 
   // Validate circular reference if reports_to_member_id is provided
   if (input.reports_to_member_id !== undefined && input.reports_to_member_id !== null) {
@@ -100,10 +153,11 @@ export async function updateMemberOrgLevel(
       return { success: false, error: "ไม่สามารถรายงานตรงต่อตัวเองได้" };
     }
 
+    // Fetch members across all accessible companies for cross-company cycle detection
     const { data: allMembers } = await supabase
       .from("company_members")
       .select("id, reports_to_member_id")
-      .eq("company_id", companyId);
+      .in("company_id", companyIds);
 
     if (allMembers) {
       const reportsToMap = new Map<string, string | null>();
@@ -133,12 +187,14 @@ export async function updateMemberOrgLevel(
   if (input.reports_to_member_id !== undefined) {
     updateData.reports_to_member_id = input.reports_to_member_id;
   }
+  if (input.department_id !== undefined) {
+    updateData.department_id = input.department_id;
+  }
 
   const { error } = await supabase
     .from("company_members")
     .update(updateData)
-    .eq("id", memberId)
-    .eq("company_id", companyId);
+    .eq("id", memberId);
 
   if (error) return { success: false, error: "เกิดข้อผิดพลาดในการบันทึก" };
   revalidatePath("/dashboard/organization");
@@ -161,15 +217,17 @@ export async function getMembersAtLevel(level: number) {
 
 /**
  * Walk the reports_to chain upward from a member.
+ * Fetches members across all accessible companies for cross-company chain walking.
  * Returns ordered chain of member records (excluding the starting member).
  */
-export async function getReportsToChain(memberId: string, companyId: string) {
+export async function getReportsToChain(memberId: string) {
   const supabase = await createClient();
+  const companyIds = await getUserCompanyIds();
 
   const { data: allMembers, error } = await supabase
     .from("company_members")
     .select("id, user_id, org_level, max_approval_amount, reports_to_member_id, profiles(full_name)")
-    .eq("company_id", companyId);
+    .in("company_id", companyIds);
 
   if (error) throw error;
   if (!allMembers) return [];

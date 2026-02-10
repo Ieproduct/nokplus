@@ -509,6 +509,7 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string | null
+          department_id: string | null
           id: string
           max_approval_amount: number | null
           org_level: number | null
@@ -519,6 +520,7 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string | null
+          department_id?: string | null
           id?: string
           max_approval_amount?: number | null
           org_level?: number | null
@@ -529,6 +531,7 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string | null
+          department_id?: string | null
           id?: string
           max_approval_amount?: number | null
           org_level?: number | null
@@ -542,6 +545,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
           {
