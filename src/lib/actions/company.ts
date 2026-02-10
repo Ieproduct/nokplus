@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getActiveCompanyId } from "@/lib/company-context";
 import { requirePermission } from "@/lib/permissions";
@@ -83,6 +83,9 @@ export async function createCompany(input: {
 
   // Seed default permissions
   await supabase.rpc("seed_company_permissions", { p_company_id: company.id });
+
+  // Seed default organization levels (L1-L9)
+  await supabase.rpc("seed_organization_levels", { p_company_id: company.id });
 
   revalidatePath("/dashboard");
   return { success: true, id: company.id };
@@ -172,8 +175,12 @@ export async function getCompanyMembers() {
   return data;
 }
 
-export async function addMember(email: string, role: "admin" | "member" = "member") {
-  // await requirePermission("member.manage"); // temporarily disabled for debugging
+export async function addMember(email: string, role: "admin" | "member" = "member", fullName?: string) {
+  try {
+    await requirePermission("member.manage");
+  } catch {
+    return { success: false, error: "ไม่มีสิทธิ์จัดการสมาชิก" };
+  }
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
 
@@ -184,13 +191,53 @@ export async function addMember(email: string, role: "admin" | "member" = "membe
     .eq("email", email)
     .single();
 
-  if (!profile) {
-    return { success: false, error: "ไม่พบผู้ใช้ที่มีอีเมลนี้ในระบบ กรุณาให้ผู้ใช้สมัครสมาชิกก่อน" };
+  let userId: string;
+  let invited = false;
+  const displayName = fullName || email.split("@")[0];
+
+  if (profile) {
+    userId = profile.id;
+    // อัปเดตชื่อถ้ามีการระบุ
+    if (fullName) {
+      await supabase.from("profiles").update({ full_name: fullName }).eq("id", userId);
+    }
+  } else {
+    const admin = createAdminClient();
+
+    // ตรวจสอบว่ามี auth user อยู่แล้วหรือไม่
+    const { data: userList } = await admin.auth.admin.listUsers();
+    const existingAuthUser = userList?.users?.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    );
+
+    if (existingAuthUser) {
+      // มี auth user แต่ไม่มี profile → สร้าง profile ให้
+      userId = existingAuthUser.id;
+      await admin.from("profiles").upsert({
+        id: userId,
+        full_name: displayName,
+        email: email.toLowerCase(),
+        department: "PUR",
+        position: "พนักงาน",
+      }, { onConflict: "id" });
+    } else {
+      // ผู้ใช้ใหม่ → เชิญผ่าน Supabase Auth (ส่งอีเมลตั้งรหัสผ่าน)
+      const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+        data: { full_name: displayName },
+      });
+
+      if (inviteError) {
+        return { success: false, error: `ไม่สามารถเชิญผู้ใช้ได้: ${inviteError.message}` };
+      }
+
+      userId = inviteData.user.id;
+      invited = true;
+    }
   }
 
   const { error } = await supabase.from("company_members").insert({
     company_id: companyId,
-    user_id: profile.id,
+    user_id: userId,
     role,
   });
 
@@ -202,7 +249,7 @@ export async function addMember(email: string, role: "admin" | "member" = "membe
   }
 
   revalidatePath("/dashboard/settings");
-  return { success: true };
+  return { success: true, invited };
 }
 
 export async function removeMember(memberId: string) {

@@ -20,6 +20,9 @@ export type CompanyMember = Tables<"company_members">;
 export type Department = Tables<"departments">;
 export type CostCenter = Tables<"cost_centers">;
 
+// Organization types
+export type OrganizationLevel = Tables<"organization_levels">;
+
 // Approval flow types
 export type ApprovalFlow = Tables<"approval_flows">;
 export type ApprovalFlowNode = Tables<"approval_flow_nodes">;

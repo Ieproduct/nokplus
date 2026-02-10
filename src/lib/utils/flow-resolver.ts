@@ -35,7 +35,8 @@ export interface ApprovalChainStep {
  */
 export async function resolveApprovalChain(
   flowId: string,
-  context: DocumentContext
+  context: DocumentContext,
+  companyId?: string
 ): Promise<ApprovalChainStep[]> {
   const supabase = await createClient();
 
@@ -90,16 +91,31 @@ export async function resolveApprovalChain(
       let userId = node.user_id;
 
       if (!userId && node.config?.approval_level) {
-        // หา user จาก profiles โดย approval_level
-        const { data: approver } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("approval_level", node.config.approval_level as number)
-          .eq("is_active", true)
-          .limit(1)
-          .single();
+        const level = node.config.approval_level as number;
 
-        userId = approver?.id || null;
+        if (companyId) {
+          // ใช้ company_members.org_level (multi-company)
+          const { data: approver } = await supabase
+            .from("company_members")
+            .select("user_id")
+            .eq("company_id", companyId)
+            .eq("org_level", level)
+            .limit(1)
+            .single();
+
+          userId = approver?.user_id || null;
+        } else {
+          // Fallback: ใช้ profiles.approval_level (legacy)
+          const { data: approver } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("approval_level", level)
+            .eq("is_active", true)
+            .limit(1)
+            .single();
+
+          userId = approver?.id || null;
+        }
       }
 
       if (userId) {
@@ -133,6 +149,65 @@ export async function resolveApprovalChain(
     } else {
       // Non-condition nodes: ใช้ edge แรก
       currentNodeId = outEdges.length > 0 ? outEdges[0].target_node_id : null;
+    }
+  }
+
+  return chain;
+}
+
+/**
+ * Auto-escalate: สร้าง approval chain อัตโนมัติจาก org_level ของ submitter ขึ้นไป
+ * หาผู้อนุมัติที่ level สูงกว่า submitter จนเจอคนที่ max_approval_amount >= totalAmount
+ */
+export async function resolveAutoEscalateChain(
+  companyId: string,
+  submitterUserId: string,
+  totalAmount: number
+): Promise<ApprovalChainStep[]> {
+  const supabase = await createClient();
+
+  // หา submitter's org_level
+  const { data: submitter } = await supabase
+    .from("company_members")
+    .select("org_level")
+    .eq("company_id", companyId)
+    .eq("user_id", submitterUserId)
+    .single();
+
+  const submitterLevel = submitter?.org_level || 1;
+
+  // ดึงสมาชิกที่ org_level > submitterLevel เรียงจากต่ำไปสูง
+  const { data: candidates, error } = await supabase
+    .from("company_members")
+    .select("user_id, org_level, max_approval_amount, profiles(full_name)")
+    .eq("company_id", companyId)
+    .gt("org_level", submitterLevel)
+    .order("org_level", { ascending: true });
+
+  if (error) throw error;
+  if (!candidates || candidates.length === 0) return [];
+
+  // สร้าง chain: เพิ่มแต่ละ level จนเจอคนที่ max_approval_amount >= totalAmount
+  const chain: ApprovalChainStep[] = [];
+  const seenLevels = new Set<number>();
+
+  for (const c of candidates) {
+    if (!c.org_level || seenLevels.has(c.org_level)) continue;
+    seenLevels.add(c.org_level);
+
+    const profileData = c.profiles as unknown as { full_name: string } | null;
+
+    chain.push({
+      step: chain.length + 1,
+      userId: c.user_id,
+      label: profileData?.full_name || `Level ${c.org_level}`,
+    });
+
+    // ถ้า max_approval_amount = null → unlimited (จบ chain)
+    // ถ้า max_approval_amount >= totalAmount → จบ chain
+    const maxAmount = c.max_approval_amount ? Number(c.max_approval_amount) : null;
+    if (maxAmount === null || maxAmount >= totalAmount) {
+      break;
     }
   }
 

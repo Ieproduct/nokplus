@@ -19,13 +19,16 @@ export async function getUserPermissions(): Promise<Set<PermissionKey>> {
   const companyId = await getActiveCompanyId();
 
   // Get user's role in this company
-  const { data: membership } = await supabase
+  const { data: membership, error: memberError } = await supabase
     .from("company_members")
     .select("role")
     .eq("company_id", companyId)
     .eq("user_id", user.id)
     .single();
 
+  if (memberError) {
+    console.error("Permission lookup error:", memberError, { companyId, userId: user.id });
+  }
   if (!membership) throw new Error("ไม่ได้เป็นสมาชิกบริษัทนี้");
 
   // Owner always has all permissions

@@ -53,6 +53,7 @@ export async function createApprovalFlow(input: {
   name: string;
   document_type: "pr" | "po" | "ap";
   is_default?: boolean;
+  auto_escalate?: boolean;
 }) {
   const supabase = await createClient();
   const companyId = await getActiveCompanyId();
@@ -74,6 +75,7 @@ export async function createApprovalFlow(input: {
       name: input.name,
       document_type: input.document_type,
       is_default: input.is_default ?? false,
+      auto_escalate: input.auto_escalate ?? false,
     })
     .select()
     .single();
@@ -104,7 +106,7 @@ export async function createApprovalFlow(input: {
 
 export async function updateApprovalFlow(
   flowId: string,
-  input: { name?: string; is_default?: boolean; is_active?: boolean }
+  input: { name?: string; is_default?: boolean; is_active?: boolean; auto_escalate?: boolean }
 ) {
   const supabase = await createClient();
 

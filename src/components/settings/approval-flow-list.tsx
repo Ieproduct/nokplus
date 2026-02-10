@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Pencil, Trash2, Star } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,6 +27,7 @@ interface Flow {
   document_type: string;
   is_default: boolean;
   is_active: boolean;
+  auto_escalate?: boolean;
 }
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -38,6 +40,7 @@ export function ApprovalFlowList({ flows }: { flows: Flow[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [autoEscalate, setAutoEscalate] = useState(false);
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,6 +50,7 @@ export function ApprovalFlowList({ flows }: { flows: Flow[] }) {
       const result = await createApprovalFlow({
         name: form.get("name") as string,
         document_type: form.get("document_type") as "pr" | "po" | "ap",
+        auto_escalate: autoEscalate,
       });
       toast.success("สร้าง Flow เรียบร้อย");
       setOpen(false);
@@ -107,9 +111,16 @@ export function ApprovalFlowList({ flows }: { flows: Flow[] }) {
                 </TableCell>
                 <TableCell>{DOC_TYPE_LABELS[flow.document_type] || flow.document_type}</TableCell>
                 <TableCell>
-                  <Badge variant={flow.is_active ? "default" : "secondary"}>
-                    {flow.is_active ? "ใช้งาน" : "ปิด"}
-                  </Badge>
+                  <div className="flex gap-1 flex-wrap">
+                    <Badge variant={flow.is_active ? "default" : "secondary"}>
+                      {flow.is_active ? "ใช้งาน" : "ปิด"}
+                    </Badge>
+                    {flow.auto_escalate && (
+                      <Badge variant="outline" className="text-orange-600 border-orange-300">
+                        Auto-Escalate
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
@@ -138,7 +149,7 @@ export function ApprovalFlowList({ flows }: { flows: Flow[] }) {
           </TableBody>
         </Table>
 
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setAutoEscalate(false); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>สร้าง Approval Flow ใหม่</DialogTitle>
@@ -160,6 +171,16 @@ export function ApprovalFlowList({ flows }: { flows: Flow[] }) {
                     <SelectItem value="ap">ใบสำคัญจ่าย (AP)</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="auto_escalate"
+                  checked={autoEscalate}
+                  onCheckedChange={(v) => setAutoEscalate(v === true)}
+                />
+                <Label htmlFor="auto_escalate" className="text-sm font-normal cursor-pointer">
+                  Auto-Escalate (สร้าง chain อัตโนมัติตามระดับองค์กร)
+                </Label>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>

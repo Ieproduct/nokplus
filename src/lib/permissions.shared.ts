@@ -7,6 +7,7 @@ export const PERMISSION_KEYS = [
   "approval.view", "approval.process",
   "member.view", "member.manage",
   "department.view", "department.manage",
+  "organization.view", "settings.organization",
   "settings.company", "settings.departments", "settings.members",
   "settings.permissions", "settings.flows", "settings.system",
 ] as const;
@@ -38,6 +39,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "member.manage": "จัดการสมาชิก",
   "department.view": "ดูแผนก",
   "department.manage": "จัดการแผนก",
+  "organization.view": "ดูโครงสร้างองค์กร",
+  "settings.organization": "ตั้งค่าโครงสร้างองค์กร",
   "settings.company": "ตั้งค่าบริษัท",
   "settings.departments": "ตั้งค่าแผนก",
   "settings.members": "ตั้งค่าสมาชิก",
@@ -53,6 +56,6 @@ export const PERMISSION_GROUPS: { label: string; keys: PermissionKey[] }[] = [
   { label: "ใบสำคัญจ่าย (AP)", keys: ["ap.view", "ap.create", "ap.edit", "ap.approve", "ap.pay"] },
   { label: "ผู้ขาย", keys: ["vendor.view", "vendor.create", "vendor.edit"] },
   { label: "การอนุมัติ", keys: ["approval.view", "approval.process"] },
-  { label: "องค์กร", keys: ["member.view", "member.manage", "department.view", "department.manage"] },
-  { label: "ตั้งค่า", keys: ["settings.company", "settings.departments", "settings.members", "settings.permissions", "settings.flows", "settings.system"] },
+  { label: "องค์กร", keys: ["member.view", "member.manage", "department.view", "department.manage", "organization.view"] },
+  { label: "ตั้งค่า", keys: ["settings.company", "settings.departments", "settings.members", "settings.permissions", "settings.flows", "settings.system", "settings.organization"] },
 ];

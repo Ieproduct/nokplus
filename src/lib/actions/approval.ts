@@ -205,39 +205,69 @@ export async function submitDocumentForApproval(
   }> = [];
 
   if (flowId) {
-    // ใช้ flow resolver
-    const { resolveApprovalChain } = await import(
-      "@/lib/utils/flow-resolver"
-    );
-    const chain = await resolveApprovalChain(flowId, {
-      total_amount: totalAmount,
-      department: doc.department,
-    });
+    // ตรวจสอบว่า flow มี auto_escalate หรือไม่
+    const { data: flowData } = await supabase
+      .from("approval_flows")
+      .select("auto_escalate")
+      .eq("id", flowId)
+      .single();
 
-    approvalRecords = chain.map((step) => ({
-      document_type: documentType,
-      document_id: documentId,
-      approver_id: step.userId,
-      step: step.step,
-      company_id: companyId,
-    }));
+    if (flowData?.auto_escalate) {
+      // Auto-escalate: สร้าง chain อัตโนมัติตาม org_level
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { resolveAutoEscalateChain } = await import(
+          "@/lib/utils/flow-resolver"
+        );
+        const chain = await resolveAutoEscalateChain(
+          companyId,
+          user.id,
+          totalAmount
+        );
+
+        approvalRecords = chain.map((step) => ({
+          document_type: documentType,
+          document_id: documentId,
+          approver_id: step.userId,
+          step: step.step,
+          company_id: companyId,
+        }));
+      }
+    } else {
+      // ใช้ flow resolver ปกติ (pass companyId สำหรับ org_level lookup)
+      const { resolveApprovalChain } = await import(
+        "@/lib/utils/flow-resolver"
+      );
+      const chain = await resolveApprovalChain(flowId, {
+        total_amount: totalAmount,
+        department: doc.department,
+      }, companyId);
+
+      approvalRecords = chain.map((step) => ({
+        document_type: documentType,
+        document_id: documentId,
+        approver_id: step.userId,
+        step: step.step,
+        company_id: companyId,
+      }));
+    }
   }
 
-  // Fallback: ถ้าไม่มี flow หรือ chain ว่าง
+  // Fallback: ถ้าไม่มี flow หรือ chain ว่าง → ใช้ company_members.org_level
   if (approvalRecords.length === 0) {
     const { data: fallbackUser } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("is_active", true)
-      .not("approval_level", "is", null)
-      .order("approval_level", { ascending: false })
+      .from("company_members")
+      .select("user_id")
+      .eq("company_id", companyId)
+      .not("org_level", "is", null)
+      .order("org_level", { ascending: false })
       .limit(1);
 
     if (fallbackUser?.[0]) {
       approvalRecords.push({
         document_type: documentType,
         document_id: documentId,
-        approver_id: fallbackUser[0].id,
+        approver_id: fallbackUser[0].user_id,
         step: 1,
         company_id: companyId,
       });

@@ -11,6 +11,7 @@ import {
   Users,
   UserCog,
   Building2,
+  Network,
   FileText,
   ShoppingCart,
   Receipt,
@@ -53,6 +54,7 @@ const navGroups: NavGroup[] = [
       { href: "/dashboard/vendors", label: "ผู้ขาย", icon: Users, permission: "vendor.view" },
       { href: "/dashboard/settings?tab=members", label: "สมาชิก", icon: UserCog, permission: "member.view" },
       { href: "/dashboard/settings?tab=departments", label: "แผนก", icon: Building2, permission: "department.view" },
+      { href: "/dashboard/organization", label: "โครงสร้างองค์กร", icon: Network, permission: "organization.view" },
     ],
   },
   {

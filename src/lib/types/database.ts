@@ -302,6 +302,7 @@ export type Database = {
       }
       approval_flows: {
         Row: {
+          auto_escalate: boolean
           company_id: string
           conditions: Json | null
           created_at: string | null
@@ -313,6 +314,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          auto_escalate?: boolean
           company_id: string
           conditions?: Json | null
           created_at?: string | null
@@ -324,6 +326,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          auto_escalate?: boolean
           company_id?: string
           conditions?: Json | null
           created_at?: string | null
@@ -507,6 +510,8 @@ export type Database = {
           company_id: string
           created_at: string | null
           id: string
+          max_approval_amount: number | null
+          org_level: number | null
           role: Database["public"]["Enums"]["company_role"]
           user_id: string
         }
@@ -514,6 +519,8 @@ export type Database = {
           company_id: string
           created_at?: string | null
           id?: string
+          max_approval_amount?: number | null
+          org_level?: number | null
           role?: Database["public"]["Enums"]["company_role"]
           user_id: string
         }
@@ -521,6 +528,8 @@ export type Database = {
           company_id?: string
           created_at?: string | null
           id?: string
+          max_approval_amount?: number | null
+          org_level?: number | null
           role?: Database["public"]["Enums"]["company_role"]
           user_id?: string
         }
@@ -619,6 +628,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "departments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_levels: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          label_en: string | null
+          label_th: string
+          level: number
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          label_en?: string | null
+          label_th: string
+          level: number
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          label_en?: string | null
+          label_th?: string
+          level?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_levels_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -1202,6 +1252,10 @@ export type Database = {
       is_company_admin: { Args: { p_company_id: string }; Returns: boolean }
       is_company_member: { Args: { p_company_id: string }; Returns: boolean }
       seed_company_permissions: {
+        Args: { p_company_id: string }
+        Returns: undefined
+      }
+      seed_organization_levels: {
         Args: { p_company_id: string }
         Returns: undefined
       }

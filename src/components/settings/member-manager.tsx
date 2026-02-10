@@ -33,6 +33,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export function MemberManager({ members }: { members: Member[] }) {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "member">("member");
   const [loading, setLoading] = useState(false);
@@ -41,9 +42,13 @@ export function MemberManager({ members }: { members: Member[] }) {
     if (!email) return;
     setLoading(true);
     try {
-      const result = await addMember(email.trim(), role);
+      const result = await addMember(email.trim(), role, name.trim() || undefined);
       if (result.success) {
-        toast.success("เพิ่มสมาชิกเรียบร้อย");
+        toast.success(result.invited
+          ? "ส่งอีเมลเชิญเรียบร้อย ผู้ใช้จะได้รับลิงก์ตั้งรหัสผ่าน"
+          : "เพิ่มสมาชิกเรียบร้อย"
+        );
+        setName("");
         setEmail("");
       } else {
         toast.error(result.error || "เกิดข้อผิดพลาด");
@@ -87,7 +92,14 @@ export function MemberManager({ members }: { members: Member[] }) {
       <CardContent className="pt-6">
         <div className="flex gap-2 mb-4">
           <Input
-            placeholder="อีเมลผู้ใช้ที่ต้องการเพิ่ม"
+            placeholder="ชื่อ-นามสกุล"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-48"
+          />
+          <Input
+            placeholder="อีเมล"
+            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="flex-1"

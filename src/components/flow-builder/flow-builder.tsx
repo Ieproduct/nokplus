@@ -35,12 +35,18 @@ export interface FlowUser {
   position: string;
 }
 
+export interface OrgLevelOption {
+  level: number;
+  label_th: string;
+}
+
 interface FlowBuilderProps {
   flowId: string;
   flowName: string;
   initialNodes: Node[];
   initialEdges: Edge[];
   users?: FlowUser[];
+  orgLevels?: OrgLevelOption[];
 }
 
 export function FlowBuilder({
@@ -49,6 +55,7 @@ export function FlowBuilder({
   initialNodes,
   initialEdges,
   users = [],
+  orgLevels = [],
 }: FlowBuilderProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -116,17 +123,23 @@ export function FlowBuilder({
         };
 
         if (n.type === "approver") {
+          const levelNum = editLevel ? parseInt(editLevel) : undefined;
           newData.user_id = editUserId || null;
           newData.config = {
-            approval_level: editLevel ? parseInt(editLevel) : undefined,
+            approval_level: levelNum,
             max_amount: editMaxAmount ? parseInt(editMaxAmount) : null,
           };
-          // Store user name for display
           if (editUserId) {
             const user = users.find((u) => u.id === editUserId);
             newData.user_name = user?.full_name || "";
           } else {
             newData.user_name = "";
+          }
+          if (levelNum) {
+            const ol = orgLevels.find((l) => l.level === levelNum);
+            newData.org_level_label = ol ? `L${ol.level}: ${ol.label_th}` : `L${levelNum}`;
+          } else {
+            newData.org_level_label = undefined;
           }
         } else if (n.type === "condition") {
           newData.config = {
@@ -180,14 +193,19 @@ export function FlowBuilder({
     let data: Record<string, unknown> = { label: newNodeLabel };
 
     if (newNodeType === "approver") {
+      const levelNum = newNodeLevel ? parseInt(newNodeLevel) : undefined;
       data.user_id = newNodeUserId || null;
       data.config = {
-        approval_level: newNodeLevel ? parseInt(newNodeLevel) : undefined,
+        approval_level: levelNum,
         max_amount: newNodeMaxAmount ? parseInt(newNodeMaxAmount) : null,
       };
       if (newNodeUserId) {
         const user = users.find((u) => u.id === newNodeUserId);
         data.user_name = user?.full_name || "";
+      }
+      if (levelNum) {
+        const ol = orgLevels.find((l) => l.level === levelNum);
+        data.org_level_label = ol ? `L${ol.level}: ${ol.label_th}` : `L${levelNum}`;
       }
     } else if (newNodeType === "condition") {
       data.config = {
@@ -290,8 +308,24 @@ export function FlowBuilder({
                   </Select>
                 </div>
                 <div>
-                  <Label>Approval Level</Label>
-                  <Input type="number" value={newNodeLevel} onChange={(e) => setNewNodeLevel(e.target.value)} placeholder="1, 2, 3..." />
+                  <Label>ระดับองค์กร (Approval Level)</Label>
+                  {orgLevels.length > 0 ? (
+                    <Select value={newNodeLevel || "__none__"} onValueChange={(v) => setNewNodeLevel(v === "__none__" ? "" : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="เลือกระดับ" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">-- ไม่ระบุ --</SelectItem>
+                        {orgLevels.map((l) => (
+                          <SelectItem key={l.level} value={String(l.level)}>
+                            L{l.level}: {l.label_th}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input type="number" value={newNodeLevel} onChange={(e) => setNewNodeLevel(e.target.value)} placeholder="1-9" />
+                  )}
                 </div>
                 <div>
                   <Label>วงเงินสูงสุด (บาท)</Label>
@@ -371,8 +405,24 @@ export function FlowBuilder({
                   </Select>
                 </div>
                 <div>
-                  <Label>Approval Level</Label>
-                  <Input type="number" value={editLevel} onChange={(e) => setEditLevel(e.target.value)} placeholder="1, 2, 3..." />
+                  <Label>ระดับองค์กร (Approval Level)</Label>
+                  {orgLevels.length > 0 ? (
+                    <Select value={editLevel || "__none__"} onValueChange={(v) => setEditLevel(v === "__none__" ? "" : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="เลือกระดับ" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">-- ไม่ระบุ --</SelectItem>
+                        {orgLevels.map((l) => (
+                          <SelectItem key={l.level} value={String(l.level)}>
+                            L{l.level}: {l.label_th}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input type="number" value={editLevel} onChange={(e) => setEditLevel(e.target.value)} placeholder="1-9" />
+                  )}
                 </div>
                 <div>
                   <Label>วงเงินสูงสุด (บาท)</Label>
