@@ -49,7 +49,10 @@ export async function createCompany(input: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const { data: company, error: companyError } = await supabase
+  // ใช้ admin client เพราะ company ใหม่ยังไม่มี member → SELECT RLS จะ block .select()
+  const admin = createAdminClient();
+
+  const { data: company, error: companyError } = await admin
     .from("companies")
     .insert({
       name_th: input.name_th,
@@ -65,7 +68,7 @@ export async function createCompany(input: {
   if (companyError) throw companyError;
 
   // ผู้สร้างเป็น owner
-  const { error: memberError } = await supabase
+  const { error: memberError } = await admin
     .from("company_members")
     .insert({
       company_id: company.id,
@@ -76,16 +79,16 @@ export async function createCompany(input: {
   if (memberError) throw memberError;
 
   // Set active company
-  await supabase
+  await admin
     .from("profiles")
     .update({ active_company_id: company.id })
     .eq("id", user.id);
 
   // Seed default permissions
-  await supabase.rpc("seed_company_permissions", { p_company_id: company.id });
+  await admin.rpc("seed_company_permissions", { p_company_id: company.id });
 
   // Seed default organization levels (L1-L9)
-  await supabase.rpc("seed_organization_levels", { p_company_id: company.id });
+  await admin.rpc("seed_organization_levels", { p_company_id: company.id });
 
   revalidatePath("/dashboard");
   return { success: true, id: company.id };

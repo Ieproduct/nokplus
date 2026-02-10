@@ -4,7 +4,14 @@ import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ChevronDown, Users, AlertCircle, Building2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ChevronRight, ChevronDown, Users, AlertCircle, Building2, Filter } from "lucide-react";
 
 interface CompanyInfo {
   id: string;
@@ -173,55 +180,49 @@ export function OrgChart({
         <h3 className="font-medium mb-4">แผนผังองค์กร (สายบังคับบัญชา)</h3>
 
         {/* Filter bar */}
-        {companies.length > 1 && (
-          <div className="space-y-2 mb-4">
+        {(companies.length > 1 || departments.length > 0) && (
+          <div className="flex items-center gap-3 mb-4">
+            <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+
             {/* Company filter */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Button
-                variant={selectedCompanyId === null ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => handleCompanyChange(null)}
+            {companies.length > 1 && (
+              <Select
+                value={selectedCompanyId ?? "__all__"}
+                onValueChange={(v) => handleCompanyChange(v === "__all__" ? null : v)}
               >
-                ทั้งหมด
-              </Button>
-              {companies.map((c) => (
-                <Button
-                  key={c.id}
-                  variant={selectedCompanyId === c.id ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => handleCompanyChange(c.id)}
-                >
-                  {c.name_th}
-                </Button>
-              ))}
-            </div>
+                <SelectTrigger className="w-[200px] h-8 text-xs">
+                  <Building2 className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                  <SelectValue placeholder="เลือกบริษัท" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">ทุกบริษัท</SelectItem>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name_th}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             {/* Department filter */}
             {visibleDepartments.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap pl-6">
-                <Button
-                  variant={selectedDepartmentId === null ? "secondary" : "ghost"}
-                  size="sm"
-                  className="h-6 text-xs"
-                  onClick={() => setSelectedDepartmentId(null)}
-                >
-                  ทุกแผนก
-                </Button>
-                {visibleDepartments.map((d) => (
-                  <Button
-                    key={d.id}
-                    variant={selectedDepartmentId === d.id ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-6 text-xs"
-                    onClick={() => setSelectedDepartmentId(d.id)}
-                  >
-                    {d.name}
-                  </Button>
-                ))}
-              </div>
+              <Select
+                value={selectedDepartmentId ?? "__all__"}
+                onValueChange={(v) => setSelectedDepartmentId(v === "__all__" ? null : v)}
+              >
+                <SelectTrigger className="w-[180px] h-8 text-xs">
+                  <SelectValue placeholder="เลือกแผนก" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">ทุกแผนก</SelectItem>
+                  {visibleDepartments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
         )}
