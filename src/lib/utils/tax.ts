@@ -52,3 +52,31 @@ export function getWhtLabel(whtType: WhtType): string {
 export function getWhtRate(whtType: WhtType): number {
   return (WHT_RATES[whtType] || 0) * 100;
 }
+
+// Dynamic-rate calculation functions (reads from DB tax_configurations)
+
+export function calculateVatFromConfig(subtotal: number, vatRate: number): number {
+  return Math.round(subtotal * vatRate * 100) / 100;
+}
+
+export function calculateWhtFromConfig(subtotal: number, whtRate: number): number {
+  return Math.round(subtotal * whtRate * 100) / 100;
+}
+
+export function calculateNetPayableFromConfig(
+  subtotal: number,
+  vatRate: number,
+  whtRate: number
+): {
+  subtotal: number;
+  vatAmount: number;
+  whtAmount: number;
+  totalAmount: number;
+  netAmount: number;
+} {
+  const vatAmount = calculateVatFromConfig(subtotal, vatRate);
+  const whtAmount = calculateWhtFromConfig(subtotal, whtRate);
+  const totalAmount = Math.round((subtotal + vatAmount) * 100) / 100;
+  const netAmount = Math.round((subtotal + vatAmount - whtAmount) * 100) / 100;
+  return { subtotal, vatAmount, whtAmount, totalAmount, netAmount };
+}

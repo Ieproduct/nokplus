@@ -12,7 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Send, Save, ArrowLeft, Building2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/currency";
-import { calculateVat } from "@/lib/utils/tax";
+import { calculateVat, calculateVatFromConfig } from "@/lib/utils/tax";
+import { useFieldControls, type FieldControlConfig } from "@/lib/hooks/use-field-controls";
 import { toast } from "sonner";
 import { usePathname } from "next/navigation";
 
@@ -21,6 +22,15 @@ interface LineItem {
   quantity: number;
   unit: string;
   unit_price: number;
+  material_code?: string;
+  delivery_date?: string;
+}
+
+interface TaxConfig {
+  code: string;
+  label: string;
+  tax_type: string;
+  rate: number;
 }
 
 interface PRFormProps {
@@ -33,11 +43,16 @@ interface PRFormProps {
     required_date: string | null;
     status: string | null;
     notes: string | null;
+    priority?: string | null;
+    purchasing_org_id?: string | null;
+    currency_code?: string | null;
     pr_line_items?: Array<{
       description: string;
       quantity: number;
       unit: string;
       unit_price: number;
+      material_code?: string | null;
+      delivery_date?: string | null;
     }>;
   };
   departments: Array<{ code: string; name: string }>;
@@ -45,11 +60,16 @@ interface PRFormProps {
   units: Array<{ code: string; name: string }>;
   companies?: Array<{ id: string; name: string }>;
   selectedCompanyId?: string;
+  purchasingOrgs?: Array<{ id: string; code: string; name: string }>;
+  currencies?: Array<{ code: string; name: string; exchange_rate?: number }>;
+  taxConfigs?: TaxConfig[];
+  fieldControls?: FieldControlConfig[];
 }
 
-export function PRForm({ pr, departments, costCenters, units, companies, selectedCompanyId }: PRFormProps) {
+export function PRForm({ pr, departments, costCenters, units, companies, selectedCompanyId, purchasingOrgs, currencies, taxConfigs, fieldControls = [] }: PRFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const fc = useFieldControls(fieldControls);
   const [loading, setLoading] = useState(false);
   const isEditing = !!pr;
   const canEdit = !pr || pr.status === "draft" || pr.status === "revision";
@@ -61,6 +81,9 @@ export function PRForm({ pr, departments, costCenters, units, companies, selecte
   const [costCenter, setCostCenter] = useState(pr?.cost_center || "");
   const [requiredDate, setRequiredDate] = useState(pr?.required_date || "");
   const [notes, setNotes] = useState(pr?.notes || "");
+  const [priority, setPriority] = useState(pr?.priority || "normal");
+  const [purchasingOrgId, setPurchasingOrgId] = useState(pr?.purchasing_org_id || "");
+  const [currencyCode, setCurrencyCode] = useState(pr?.currency_code || "THB");
   const [items, setItems] = useState<LineItem[]>(
     pr?.pr_line_items?.length
       ? pr.pr_line_items.map((item) => ({
@@ -68,12 +91,14 @@ export function PRForm({ pr, departments, costCenters, units, companies, selecte
           quantity: item.quantity,
           unit: item.unit,
           unit_price: item.unit_price,
+          material_code: item.material_code || "",
+          delivery_date: item.delivery_date || "",
         }))
-      : [{ description: "", quantity: 1, unit: "PCS", unit_price: 0 }]
+      : [{ description: "", quantity: 1, unit: "PCS", unit_price: 0, material_code: "", delivery_date: "" }]
   );
 
   const addItem = () => {
-    setItems([...items, { description: "", quantity: 1, unit: "PCS", unit_price: 0 }]);
+    setItems([...items, { description: "", quantity: 1, unit: "PCS", unit_price: 0, material_code: "", delivery_date: "" }]);
   };
 
   const removeItem = (index: number) => {
@@ -89,7 +114,9 @@ export function PRForm({ pr, departments, costCenters, units, companies, selecte
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-  const vatAmount = calculateVat(subtotal);
+  const vatConfig = taxConfigs?.find((t) => t.tax_type === "vat");
+  const vatRate = vatConfig ? vatConfig.rate / 100 : 0.07;
+  const vatAmount = taxConfigs ? calculateVatFromConfig(subtotal, vatRate) : calculateVat(subtotal);
   const total = Math.round((subtotal + vatAmount) * 100) / 100;
 
   const handleSave = async () => {
@@ -111,8 +138,18 @@ export function PRForm({ pr, departments, costCenters, units, companies, selecte
         cost_center: costCenter || undefined,
         required_date: requiredDate || undefined,
         notes: notes || undefined,
-        items,
+        items: items.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          material_code: item.material_code || undefined,
+          delivery_date: item.delivery_date || undefined,
+        })),
         companyId: selectedCompanyId,
+        priority,
+        purchasing_org_id: purchasingOrgId || undefined,
+        currency_code: currencyCode,
       };
 
       if (isEditing) {
@@ -210,6 +247,44 @@ export function PRForm({ pr, departments, costCenters, units, companies, selecte
             <Label>วันที่ต้องการ</Label>
             <Input type="date" value={requiredDate} onChange={(e) => setRequiredDate(e.target.value)} disabled={!canEdit} />
           </div>
+          <div className="space-y-2">
+            <Label>ความสำคัญ</Label>
+            <Select value={priority} onValueChange={setPriority} disabled={!canEdit}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">ต่ำ</SelectItem>
+                <SelectItem value="normal">ปกติ</SelectItem>
+                <SelectItem value="high">สูง</SelectItem>
+                <SelectItem value="urgent">เร่งด่วน</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {purchasingOrgs && purchasingOrgs.length > 0 && (
+            <div className="space-y-2">
+              <Label>หน่วยจัดซื้อ</Label>
+              <Select value={purchasingOrgId} onValueChange={setPurchasingOrgId} disabled={!canEdit}>
+                <SelectTrigger><SelectValue placeholder="เลือกหน่วยจัดซื้อ" /></SelectTrigger>
+                <SelectContent>
+                  {purchasingOrgs.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>{org.name} ({org.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {currencies && currencies.length > 0 && (
+            <div className="space-y-2">
+              <Label>สกุลเงิน</Label>
+              <Select value={currencyCode} onValueChange={setCurrencyCode} disabled={!canEdit}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {currencies.map((cur) => (
+                    <SelectItem key={cur.code} value={cur.code}>{cur.name} ({cur.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -223,74 +298,94 @@ export function PRForm({ pr, departments, costCenters, units, companies, selecte
           )}
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>รายละเอียด</TableHead>
-                <TableHead className="w-24">จำนวน</TableHead>
-                <TableHead className="w-28">หน่วย</TableHead>
-                <TableHead className="w-32">ราคาต่อหน่วย</TableHead>
-                <TableHead className="w-32 text-right">จำนวนเงิน</TableHead>
-                {canEdit && <TableHead className="w-12"></TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell>
-                    <Input
-                      value={item.description}
-                      onChange={(e) => updateItem(index, "description", e.target.value)}
-                      placeholder="รายละเอียดสินค้า/บริการ"
-                      disabled={!canEdit}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)}
-                      disabled={!canEdit}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Select value={item.unit} onValueChange={(v) => updateItem(index, "unit", v)} disabled={!canEdit}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {units.map((u) => (
-                          <SelectItem key={u.code} value={u.code}>{u.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.unit_price}
-                      onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
-                      disabled={!canEdit}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(item.quantity * item.unit_price)}
-                  </TableCell>
-                  {canEdit && (
-                    <TableCell>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)} disabled={items.length <= 1}>
-                        <Trash2 className="h-4 w-4 text-nok-error" />
-                      </Button>
-                    </TableCell>
-                  )}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead className="w-28">รหัสสินค้า</TableHead>
+                  <TableHead>รายละเอียด</TableHead>
+                  <TableHead className="w-24">จำนวน</TableHead>
+                  <TableHead className="w-28">หน่วย</TableHead>
+                  <TableHead className="w-32">ราคาต่อหน่วย</TableHead>
+                  <TableHead className="w-32 text-right">จำนวนเงิน</TableHead>
+                  <TableHead className="w-32">วันที่ต้องการ</TableHead>
+                  {canEdit && <TableHead className="w-12"></TableHead>}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {items.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell>
+                      <Input
+                        value={item.material_code || ""}
+                        onChange={(e) => updateItem(index, "material_code", e.target.value)}
+                        placeholder="รหัส"
+                        disabled={!canEdit}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={item.description}
+                        onChange={(e) => updateItem(index, "description", e.target.value)}
+                        placeholder="รายละเอียดสินค้า/บริการ"
+                        disabled={!canEdit}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)}
+                        disabled={!canEdit}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select value={item.unit} onValueChange={(v) => updateItem(index, "unit", v)} disabled={!canEdit}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {units.map((u) => (
+                            <SelectItem key={u.code} value={u.code}>{u.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.unit_price}
+                        onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                        disabled={!canEdit}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(item.quantity * item.unit_price)}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="date"
+                        value={item.delivery_date || ""}
+                        onChange={(e) => updateItem(index, "delivery_date", e.target.value)}
+                        disabled={!canEdit}
+                      />
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)} disabled={items.length <= 1}>
+                          <Trash2 className="h-4 w-4 text-nok-error" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
           <div className="flex justify-end p-4 border-t bg-muted/30">
             <div className="w-72 space-y-2">
@@ -299,7 +394,7 @@ export function PRForm({ pr, departments, costCenters, units, companies, selecte
                 <span className="font-medium">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">VAT 7%</span>
+                <span className="text-muted-foreground">VAT {(vatRate * 100).toFixed(0)}%</span>
                 <span className="font-medium">{formatCurrency(vatAmount)}</span>
               </div>
               <div className="flex justify-between font-bold text-base border-t pt-2 text-nok-navy">

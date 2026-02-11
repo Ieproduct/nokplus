@@ -60,9 +60,17 @@ interface APFormProps {
   approvedPOs: Array<{ id: string; document_number: string; title: string }>;
   departments: Array<{ code: string; name: string }>;
   costCenters: Array<{ code: string; name: string }>;
-  units: Array<{ code: string; name: string }>;
+  units: Array<{ code: string; label: string }>;
   companies?: Array<{ id: string; name: string }>;
   selectedCompanyId?: string;
+  fieldControls?: Array<{
+    field_name: string;
+    field_label: string;
+    is_visible: boolean;
+    is_required: boolean;
+    is_editable: boolean;
+    default_value: string | null;
+  }>;
 }
 
 const AP_CHECKLIST_ITEMS = [
@@ -76,7 +84,7 @@ const AP_CHECKLIST_ITEMS = [
   { key: "check_approval_doc", label: "เอกสารอนุมัติ", required: true },
 ];
 
-export function APForm({ ap, vendors, approvedPOs, departments, costCenters, units, companies, selectedCompanyId }: APFormProps) {
+export function APForm({ ap, vendors, approvedPOs, departments, costCenters, units, companies, selectedCompanyId, fieldControls = [] }: APFormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [loading, setLoading] = useState(false);
@@ -351,7 +359,7 @@ export function APForm({ ap, vendors, approvedPOs, departments, costCenters, uni
                     <Select value={item.unit} onValueChange={(v) => updateItem(index, "unit", v)} disabled={!canEdit}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {units.map((u) => (<SelectItem key={u.code} value={u.code}>{u.name}</SelectItem>))}
+                        {units.map((u) => (<SelectItem key={u.code} value={u.code}>{u.label}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </TableCell>

@@ -12,6 +12,7 @@ import {
   Network,
   FileText,
   ShoppingCart,
+  PackageCheck,
   Receipt,
   CheckSquare,
   Settings,
@@ -55,6 +56,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/dashboard/pr", label: "ใบขอซื้อ (PR)", icon: FileText, permission: "pr.view" },
       { href: "/dashboard/po", label: "ใบสั่งซื้อ (PO)", icon: ShoppingCart, permission: "po.view" },
+      { href: "/dashboard/gr", label: "ใบรับสินค้า (GR)", icon: PackageCheck, permission: "gr.view" },
       { href: "/dashboard/ap", label: "ใบสำคัญจ่าย (AP)", icon: Receipt, permission: "ap.view" },
     ],
   },

@@ -66,6 +66,9 @@ interface POLineItem {
   quantity: number;
   unit: string;
   unit_price: number;
+  material_code?: string;
+  delivery_date?: string;
+  pr_line_item_id?: string;
 }
 
 export async function createPurchaseOrder(input: {
@@ -81,6 +84,12 @@ export async function createPurchaseOrder(input: {
   notes?: string;
   items: POLineItem[];
   companyId?: string;
+  purchasing_org_id?: string;
+  currency_code?: string;
+  exchange_rate?: number;
+  incoterms?: string;
+  delivery_address?: string;
+  gr_required?: boolean;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -120,6 +129,12 @@ export async function createPurchaseOrder(input: {
       net_amount: calc.netAmount,
       notes: input.notes || null,
       company_id: companyId,
+      purchasing_org_id: input.purchasing_org_id || null,
+      currency_code: input.currency_code || "THB",
+      exchange_rate: input.exchange_rate ?? 1,
+      incoterms: input.incoterms || null,
+      delivery_address: input.delivery_address || null,
+      gr_required: input.gr_required ?? true,
     })
     .select()
     .single();
@@ -134,6 +149,10 @@ export async function createPurchaseOrder(input: {
     unit: item.unit,
     unit_price: item.unit_price,
     amount: Math.round(item.quantity * item.unit_price * 100) / 100,
+    material_code: item.material_code || null,
+    delivery_date: item.delivery_date || null,
+    pr_line_item_id: item.pr_line_item_id || null,
+    remaining_qty: item.quantity,
   }));
 
   const { error: itemsError } = await supabase
@@ -159,6 +178,12 @@ export async function updatePurchaseOrder(
     wht_type: WhtType;
     notes?: string;
     items: POLineItem[];
+    purchasing_org_id?: string;
+    currency_code?: string;
+    exchange_rate?: number;
+    incoterms?: string;
+    delivery_address?: string;
+    gr_required?: boolean;
   }
 ) {
   const supabase = await createClient();
@@ -200,6 +225,12 @@ export async function updatePurchaseOrder(
       total_amount: calc.totalAmount,
       net_amount: calc.netAmount,
       notes: input.notes || null,
+      purchasing_org_id: input.purchasing_org_id || null,
+      currency_code: input.currency_code || "THB",
+      exchange_rate: input.exchange_rate ?? 1,
+      incoterms: input.incoterms || null,
+      delivery_address: input.delivery_address || null,
+      gr_required: input.gr_required ?? true,
     })
     .eq("id", id);
 
@@ -216,6 +247,10 @@ export async function updatePurchaseOrder(
     unit: item.unit,
     unit_price: item.unit_price,
     amount: Math.round(item.quantity * item.unit_price * 100) / 100,
+    material_code: item.material_code || null,
+    delivery_date: item.delivery_date || null,
+    pr_line_item_id: item.pr_line_item_id || null,
+    remaining_qty: item.quantity,
   }));
 
   const { error: itemsError } = await supabase

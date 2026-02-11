@@ -64,9 +64,11 @@ export type Database = {
           ap_id: string
           created_at: string | null
           description: string
+          gr_line_item_id: string | null
           id: string
           line_number: number
           notes: string | null
+          po_line_item_id: string | null
           quantity: number
           unit: string
           unit_price: number
@@ -76,9 +78,11 @@ export type Database = {
           ap_id: string
           created_at?: string | null
           description: string
+          gr_line_item_id?: string | null
           id?: string
           line_number: number
           notes?: string | null
+          po_line_item_id?: string | null
           quantity?: number
           unit?: string
           unit_price?: number
@@ -88,9 +92,11 @@ export type Database = {
           ap_id?: string
           created_at?: string | null
           description?: string
+          gr_line_item_id?: string | null
           id?: string
           line_number?: number
           notes?: string | null
+          po_line_item_id?: string | null
           quantity?: number
           unit?: string
           unit_price?: number
@@ -101,6 +107,20 @@ export type Database = {
             columns: ["ap_id"]
             isOneToOne: false
             referencedRelation: "ap_vouchers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_line_items_gr_line_item_id_fkey"
+            columns: ["gr_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "gr_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_line_items_po_line_item_id_fkey"
+            columns: ["po_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "po_line_items"
             referencedColumns: ["id"]
           },
         ]
@@ -123,9 +143,12 @@ export type Database = {
           description: string | null
           document_number: string
           due_date: string | null
+          gr_id: string | null
           id: string
           invoice_date: string | null
           invoice_number: string | null
+          matching_result: Json | null
+          matching_status: string | null
           net_amount: number | null
           notes: string | null
           paid_amount: number | null
@@ -160,9 +183,12 @@ export type Database = {
           description?: string | null
           document_number: string
           due_date?: string | null
+          gr_id?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          matching_result?: Json | null
+          matching_status?: string | null
           net_amount?: number | null
           notes?: string | null
           paid_amount?: number | null
@@ -197,9 +223,12 @@ export type Database = {
           description?: string | null
           document_number?: string
           due_date?: string | null
+          gr_id?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          matching_result?: Json | null
+          matching_status?: string | null
           net_amount?: number | null
           notes?: string | null
           paid_amount?: number | null
@@ -230,6 +259,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_vouchers_gr_id_fkey"
+            columns: ["gr_id"]
+            isOneToOne: false
+            referencedRelation: "goods_receipts"
             referencedColumns: ["id"]
           },
           {
@@ -968,6 +1004,47 @@ export type Database = {
           },
         ]
       }
+      document_revisions: {
+        Row: {
+          changed_at: string | null
+          changed_by: string
+          changes_json: Json
+          document_id: string
+          document_type: string
+          id: string
+          reason: string | null
+          revision_number: number
+        }
+        Insert: {
+          changed_at?: string | null
+          changed_by: string
+          changes_json: Json
+          document_id: string
+          document_type: string
+          id?: string
+          reason?: string | null
+          revision_number?: number
+        }
+        Update: {
+          changed_at?: string | null
+          changed_by?: string
+          changes_json?: Json
+          document_id?: string
+          document_type?: string
+          id?: string
+          reason?: string | null
+          revision_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_revisions_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       field_controls: {
         Row: {
           company_id: string
@@ -1017,6 +1094,124 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goods_receipts: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          document_number: string
+          id: string
+          notes: string | null
+          po_id: string
+          receipt_date: string
+          received_by: string
+          status: string
+          updated_at: string | null
+          warehouse: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          document_number: string
+          id?: string
+          notes?: string | null
+          po_id: string
+          receipt_date?: string | null
+          received_by: string
+          status?: string | null
+          updated_at?: string | null
+          warehouse?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          document_number?: string
+          id?: string
+          notes?: string | null
+          po_id?: string
+          receipt_date?: string | null
+          received_by?: string
+          status?: string | null
+          updated_at?: string | null
+          warehouse?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goods_receipts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipts_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipts_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gr_line_items: {
+        Row: {
+          batch_number: string | null
+          created_at: string | null
+          gr_id: string
+          id: string
+          inspection_status: string | null
+          line_number: number
+          notes: string | null
+          po_line_item_id: string
+          received_qty: number
+          storage_location: string | null
+        }
+        Insert: {
+          batch_number?: string | null
+          created_at?: string | null
+          gr_id: string
+          id?: string
+          inspection_status?: string | null
+          line_number: number
+          notes?: string | null
+          po_line_item_id: string
+          received_qty?: number
+          storage_location?: string | null
+        }
+        Update: {
+          batch_number?: string | null
+          created_at?: string | null
+          gr_id?: string
+          id?: string
+          inspection_status?: string | null
+          line_number?: number
+          notes?: string | null
+          po_line_item_id?: string
+          received_qty?: number
+          storage_location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gr_line_items_gr_id_fkey"
+            columns: ["gr_id"]
+            isOneToOne: false
+            referencedRelation: "goods_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gr_line_items_po_line_item_id_fkey"
+            columns: ["po_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "po_line_items"
             referencedColumns: ["id"]
           },
         ]
@@ -1213,36 +1408,51 @@ export type Database = {
         Row: {
           amount: number
           created_at: string | null
+          delivery_date: string | null
           description: string
           id: string
           line_number: number
+          material_code: string | null
           notes: string | null
           po_id: string
+          pr_line_item_id: string | null
           quantity: number
+          received_qty: number | null
+          remaining_qty: number | null
           unit: string
           unit_price: number
         }
         Insert: {
           amount?: number
           created_at?: string | null
+          delivery_date?: string | null
           description: string
           id?: string
           line_number: number
+          material_code?: string | null
           notes?: string | null
           po_id: string
+          pr_line_item_id?: string | null
           quantity?: number
+          received_qty?: number | null
+          remaining_qty?: number | null
           unit?: string
           unit_price?: number
         }
         Update: {
           amount?: number
           created_at?: string | null
+          delivery_date?: string | null
           description?: string
           id?: string
           line_number?: number
+          material_code?: string | null
           notes?: string | null
           po_id?: string
+          pr_line_item_id?: string | null
           quantity?: number
+          received_qty?: number | null
+          remaining_qty?: number | null
           unit?: string
           unit_price?: number
         }
@@ -1254,15 +1464,24 @@ export type Database = {
             referencedRelation: "purchase_orders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "po_line_items_pr_line_item_id_fkey"
+            columns: ["pr_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "pr_line_items"
+            referencedColumns: ["id"]
+          },
         ]
       }
       pr_line_items: {
         Row: {
           amount: number
           created_at: string | null
+          delivery_date: string | null
           description: string
           id: string
           line_number: number
+          material_code: string | null
           notes: string | null
           pr_id: string
           quantity: number
@@ -1272,9 +1491,11 @@ export type Database = {
         Insert: {
           amount?: number
           created_at?: string | null
+          delivery_date?: string | null
           description: string
           id?: string
           line_number: number
+          material_code?: string | null
           notes?: string | null
           pr_id: string
           quantity?: number
@@ -1284,9 +1505,11 @@ export type Database = {
         Update: {
           amount?: number
           created_at?: string | null
+          delivery_date?: string | null
           description?: string
           id?: string
           line_number?: number
+          material_code?: string | null
           notes?: string | null
           pr_id?: string
           quantity?: number
@@ -1359,16 +1582,22 @@ export type Database = {
           cost_center: string | null
           created_at: string | null
           created_by: string
+          currency_code: string | null
+          delivery_address: string | null
           delivery_date: string | null
           department: string
           description: string | null
           document_number: string
+          exchange_rate: number | null
+          gr_required: boolean | null
           id: string
+          incoterms: string | null
           net_amount: number | null
           notes: string | null
           order_date: string | null
           payment_term: string | null
           pr_id: string | null
+          purchasing_org_id: string | null
           status: Database["public"]["Enums"]["document_status"] | null
           subtotal: number | null
           title: string
@@ -1384,16 +1613,22 @@ export type Database = {
           cost_center?: string | null
           created_at?: string | null
           created_by: string
+          currency_code?: string | null
+          delivery_address?: string | null
           delivery_date?: string | null
           department: string
           description?: string | null
           document_number: string
+          exchange_rate?: number | null
+          gr_required?: boolean | null
           id?: string
+          incoterms?: string | null
           net_amount?: number | null
           notes?: string | null
           order_date?: string | null
           payment_term?: string | null
           pr_id?: string | null
+          purchasing_org_id?: string | null
           status?: Database["public"]["Enums"]["document_status"] | null
           subtotal?: number | null
           title: string
@@ -1409,16 +1644,22 @@ export type Database = {
           cost_center?: string | null
           created_at?: string | null
           created_by?: string
+          currency_code?: string | null
+          delivery_address?: string | null
           delivery_date?: string | null
           department?: string
           description?: string | null
           document_number?: string
+          exchange_rate?: number | null
+          gr_required?: boolean | null
           id?: string
+          incoterms?: string | null
           net_amount?: number | null
           notes?: string | null
           order_date?: string | null
           payment_term?: string | null
           pr_id?: string | null
+          purchasing_org_id?: string | null
           status?: Database["public"]["Enums"]["document_status"] | null
           subtotal?: number | null
           title?: string
@@ -1452,6 +1693,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "purchase_orders_purchasing_org_id_fkey"
+            columns: ["purchasing_org_id"]
+            isOneToOne: false
+            referencedRelation: "purchasing_organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "purchase_orders_vendor_id_fkey"
             columns: ["vendor_id"]
             isOneToOne: false
@@ -1462,14 +1710,19 @@ export type Database = {
       }
       purchase_requisitions: {
         Row: {
+          budget_control_id: string | null
+          budget_reserved: boolean | null
           company_id: string | null
           cost_center: string | null
           created_at: string | null
+          currency_code: string | null
           department: string
           description: string | null
           document_number: string
           id: string
           notes: string | null
+          priority: string | null
+          purchasing_org_id: string | null
           requested_by: string
           requested_date: string | null
           required_date: string | null
@@ -1481,14 +1734,19 @@ export type Database = {
           vat_amount: number | null
         }
         Insert: {
+          budget_control_id?: string | null
+          budget_reserved?: boolean | null
           company_id?: string | null
           cost_center?: string | null
           created_at?: string | null
+          currency_code?: string | null
           department: string
           description?: string | null
           document_number: string
           id?: string
           notes?: string | null
+          priority?: string | null
+          purchasing_org_id?: string | null
           requested_by: string
           requested_date?: string | null
           required_date?: string | null
@@ -1500,14 +1758,19 @@ export type Database = {
           vat_amount?: number | null
         }
         Update: {
+          budget_control_id?: string | null
+          budget_reserved?: boolean | null
           company_id?: string | null
           cost_center?: string | null
           created_at?: string | null
+          currency_code?: string | null
           department?: string
           description?: string | null
           document_number?: string
           id?: string
           notes?: string | null
+          priority?: string | null
+          purchasing_org_id?: string | null
           requested_by?: string
           requested_date?: string | null
           required_date?: string | null
@@ -1520,10 +1783,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "purchase_requisitions_budget_control_id_fkey"
+            columns: ["budget_control_id"]
+            isOneToOne: false
+            referencedRelation: "budget_controls"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "purchase_requisitions_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requisitions_purchasing_org_id_fkey"
+            columns: ["purchasing_org_id"]
+            isOneToOne: false
+            referencedRelation: "purchasing_organizations"
             referencedColumns: ["id"]
           },
           {
@@ -1986,6 +2263,7 @@ export type Database = {
           status: Database["public"]["Enums"]["vendor_status"] | null
           tax_id: string | null
           updated_at: string | null
+          vendor_group_id: string | null
         }
         Insert: {
           address?: string | null
@@ -2011,6 +2289,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["vendor_status"] | null
           tax_id?: string | null
           updated_at?: string | null
+          vendor_group_id?: string | null
         }
         Update: {
           address?: string | null
@@ -2036,6 +2315,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["vendor_status"] | null
           tax_id?: string | null
           updated_at?: string | null
+          vendor_group_id?: string | null
         }
         Relationships: [
           {
@@ -2050,6 +2330,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendors_vendor_group_id_fkey"
+            columns: ["vendor_group_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_groups"
             referencedColumns: ["id"]
           },
         ]

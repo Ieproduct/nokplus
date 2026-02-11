@@ -1,9 +1,9 @@
 import { getApprovedVendors } from "@/lib/actions/vendor";
 import { getPurchaseOrders } from "@/lib/actions/po";
-import { getDocumentSettingsConfig } from "@/lib/config/loader";
 import { getDepartments, getCostCenters } from "@/lib/actions/department";
 import { getMyCompanies } from "@/lib/actions/company";
 import { getActiveCompanyId } from "@/lib/company-context";
+import { getActiveUnits, getActiveTaxRates, getFieldControls } from "@/lib/actions/enterprise-lookup";
 import { APForm } from "@/components/ap-form";
 
 export default async function NewAPPage({
@@ -12,7 +12,6 @@ export default async function NewAPPage({
   searchParams: Promise<{ company?: string }>;
 }) {
   const params = await searchParams;
-  const docConfig = getDocumentSettingsConfig();
 
   const [companies, activeCompanyId] = await Promise.all([
     getMyCompanies(),
@@ -36,9 +35,12 @@ export default async function NewAPPage({
     .filter((po) => po.status === "approved" && po.company_id === selectedCompanyId)
     .map((po) => ({ id: po.id, document_number: po.document_number, title: po.title }));
 
-  const [departments, costCenters] = await Promise.all([
+  const [departments, costCenters, units, taxConfigs, fieldControls] = await Promise.all([
     getDepartments(selectedCompanyId),
     getCostCenters(selectedCompanyId),
+    getActiveUnits(selectedCompanyId),
+    getActiveTaxRates(selectedCompanyId),
+    getFieldControls("ap", selectedCompanyId),
   ]);
 
   return (
@@ -52,9 +54,10 @@ export default async function NewAPPage({
         approvedPOs={approvedPOs}
         departments={departments.map((d) => ({ code: d.code, name: d.name }))}
         costCenters={costCenters.map((c) => ({ code: c.code, name: c.name }))}
-        units={docConfig.units}
+        units={units.map((u) => ({ code: u.code, label: u.name }))}
         companies={companies.map((c) => ({ id: c.companies!.id, name: c.companies!.name_th }))}
         selectedCompanyId={selectedCompanyId}
+        fieldControls={fieldControls}
       />
     </div>
   );

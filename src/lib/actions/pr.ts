@@ -78,6 +78,8 @@ interface LineItem {
   quantity: number;
   unit: string;
   unit_price: number;
+  material_code?: string;
+  delivery_date?: string;
 }
 
 export async function createPurchaseRequisition(input: {
@@ -89,6 +91,9 @@ export async function createPurchaseRequisition(input: {
   notes?: string;
   items: LineItem[];
   companyId?: string;
+  priority?: string;
+  purchasing_org_id?: string;
+  currency_code?: string;
 }) {
   await requirePermission("pr.create");
   const supabase = await createClient();
@@ -127,6 +132,9 @@ export async function createPurchaseRequisition(input: {
       total_amount: totalAmount,
       notes: input.notes || null,
       company_id: companyId,
+      priority: input.priority || "normal",
+      purchasing_org_id: input.purchasing_org_id || null,
+      currency_code: input.currency_code || "THB",
     })
     .select()
     .single();
@@ -142,6 +150,8 @@ export async function createPurchaseRequisition(input: {
     unit: item.unit,
     unit_price: item.unit_price,
     amount: Math.round(item.quantity * item.unit_price * 100) / 100,
+    material_code: item.material_code || null,
+    delivery_date: item.delivery_date || null,
   }));
 
   const { error: itemsError } = await supabase
@@ -164,6 +174,9 @@ export async function updatePurchaseRequisition(
     required_date?: string;
     notes?: string;
     items: LineItem[];
+    priority?: string;
+    purchasing_org_id?: string;
+    currency_code?: string;
   }
 ) {
   await requirePermission("pr.edit");
@@ -189,6 +202,9 @@ export async function updatePurchaseRequisition(
       vat_amount: vatAmount,
       total_amount: totalAmount,
       notes: input.notes || null,
+      priority: input.priority || "normal",
+      purchasing_org_id: input.purchasing_org_id || null,
+      currency_code: input.currency_code || "THB",
     })
     .eq("id", id);
 
@@ -205,6 +221,8 @@ export async function updatePurchaseRequisition(
     unit: item.unit,
     unit_price: item.unit_price,
     amount: Math.round(item.quantity * item.unit_price * 100) / 100,
+    material_code: item.material_code || null,
+    delivery_date: item.delivery_date || null,
   }));
 
   const { error: itemsError } = await supabase

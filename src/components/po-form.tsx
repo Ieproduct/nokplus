@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPurchaseOrder, updatePurchaseOrder, submitPOForApproval } from "@/lib/actions/po";
+import { getPRWithLineItems, getVendorDefaults } from "@/lib/actions/enterprise-lookup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Send, Save, ArrowLeft, Building2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/currency";
-import { calculateNetPayable, getWhtLabel, WhtType } from "@/lib/utils/tax";
+import { calculateNetPayable, calculateNetPayableFromConfig, getWhtLabel, WhtType } from "@/lib/utils/tax";
+import { useFieldControls, type FieldControlConfig } from "@/lib/hooks/use-field-controls";
 import { toast } from "sonner";
 import { usePathname } from "next/navigation";
 
@@ -21,7 +24,21 @@ interface LineItem {
   quantity: number;
   unit: string;
   unit_price: number;
+  material_code?: string;
+  delivery_date?: string;
+  pr_line_item_id?: string;
 }
+
+interface TaxConfig {
+  code: string;
+  label: string;
+  tax_type: string;
+  rate: number;
+}
+
+const INCOTERMS_OPTIONS = [
+  "EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP", "FAS", "FOB", "CFR", "CIF",
+];
 
 interface POFormProps {
   po?: {
@@ -37,11 +54,20 @@ interface POFormProps {
     notes: string | null;
     vendor_id: string;
     pr_id: string | null;
+    purchasing_org_id?: string | null;
+    currency_code?: string | null;
+    exchange_rate?: number | null;
+    incoterms?: string | null;
+    delivery_address?: string | null;
+    gr_required?: boolean | null;
     po_line_items?: Array<{
       description: string;
       quantity: number;
       unit: string;
       unit_price: number;
+      material_code?: string | null;
+      delivery_date?: string | null;
+      pr_line_item_id?: string | null;
     }>;
   };
   vendors: Array<{ id: string; name: string; code: string }>;
@@ -52,12 +78,18 @@ interface POFormProps {
   paymentTerms: Array<{ code: string; name: string }>;
   companies?: Array<{ id: string; name: string }>;
   selectedCompanyId?: string;
+  purchasingOrgs?: Array<{ id: string; code: string; name: string }>;
+  currencies?: Array<{ code: string; name: string; exchange_rate: number }>;
+  taxConfigs?: TaxConfig[];
+  fieldControls?: FieldControlConfig[];
 }
 
-export function POForm({ po, vendors, approvedPRs, departments, costCenters, units, paymentTerms, companies, selectedCompanyId }: POFormProps) {
+export function POForm({ po, vendors, approvedPRs, departments, costCenters, units, paymentTerms, companies, selectedCompanyId, purchasingOrgs, currencies, taxConfigs, fieldControls = [] }: POFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const fc = useFieldControls(fieldControls);
   const [loading, setLoading] = useState(false);
+  const [, startTransition] = useTransition();
   const isEditing = !!po;
   const canEdit = !po || po.status === "draft" || po.status === "revision";
   const showCompanySelector = !isEditing && companies && companies.length > 1;
@@ -72,6 +104,12 @@ export function POForm({ po, vendors, approvedPRs, departments, costCenters, uni
   const [paymentTerm, setPaymentTerm] = useState(po?.payment_term || "NET30");
   const [whtType, setWhtType] = useState<WhtType>((po?.wht_type as WhtType) || "none");
   const [notes, setNotes] = useState(po?.notes || "");
+  const [purchasingOrgId, setPurchasingOrgId] = useState(po?.purchasing_org_id || "");
+  const [currencyCode, setCurrencyCode] = useState(po?.currency_code || "THB");
+  const [exchangeRate, setExchangeRate] = useState(po?.exchange_rate || 1);
+  const [incoterms, setIncoterms] = useState(po?.incoterms || "");
+  const [deliveryAddress, setDeliveryAddress] = useState(po?.delivery_address || "");
+  const [grRequired, setGrRequired] = useState(po?.gr_required ?? true);
   const [items, setItems] = useState<LineItem[]>(
     po?.po_line_items?.length
       ? po.po_line_items.map((item) => ({
@@ -79,11 +117,14 @@ export function POForm({ po, vendors, approvedPRs, departments, costCenters, uni
           quantity: item.quantity,
           unit: item.unit,
           unit_price: item.unit_price,
+          material_code: item.material_code || "",
+          delivery_date: item.delivery_date || "",
+          pr_line_item_id: item.pr_line_item_id || undefined,
         }))
-      : [{ description: "", quantity: 1, unit: "PCS", unit_price: 0 }]
+      : [{ description: "", quantity: 1, unit: "PCS", unit_price: 0, material_code: "", delivery_date: "" }]
   );
 
-  const addItem = () => setItems([...items, { description: "", quantity: 1, unit: "PCS", unit_price: 0 }]);
+  const addItem = () => setItems([...items, { description: "", quantity: 1, unit: "PCS", unit_price: 0, material_code: "", delivery_date: "" }]);
   const removeItem = (index: number) => { if (items.length > 1) setItems(items.filter((_, i) => i !== index)); };
   const updateItem = (index: number, field: keyof LineItem, value: string | number) => {
     const newItems = [...items];
@@ -91,8 +132,66 @@ export function POForm({ po, vendors, approvedPRs, departments, costCenters, uni
     setItems(newItems);
   };
 
+  // Tax calculation
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-  const calc = calculateNetPayable(subtotal, whtType);
+  const vatConfig = taxConfigs?.find((t) => t.tax_type === "vat");
+  const whtConfig = taxConfigs?.find((t) => t.code === whtType && t.tax_type === "wht");
+  const vatRate = vatConfig ? vatConfig.rate / 100 : 0.07;
+  const whtRate = whtConfig ? whtConfig.rate / 100 : undefined;
+
+  const calc = taxConfigs
+    ? calculateNetPayableFromConfig(subtotal, vatRate, whtRate ?? (whtType !== "none" ? calculateNetPayable(subtotal, whtType).whtAmount / subtotal || 0 : 0))
+    : calculateNetPayable(subtotal, whtType);
+
+  // PR auto-copy
+  const handlePRSelect = (selectedPrId: string) => {
+    setPrId(selectedPrId);
+    if (!selectedPrId) return;
+    startTransition(async () => {
+      try {
+        const prData = await getPRWithLineItems(selectedPrId);
+        if (prData) {
+          setTitle(prData.title);
+          setDepartment(prData.department);
+          if (prData.cost_center) setCostCenter(prData.cost_center);
+          if (prData.description) setDescription(prData.description);
+          if (prData.pr_line_items?.length) {
+            setItems(prData.pr_line_items.map((item) => ({
+              description: item.description,
+              quantity: item.quantity,
+              unit: item.unit,
+              unit_price: item.unit_price,
+              material_code: item.material_code || "",
+              delivery_date: item.delivery_date || "",
+              pr_line_item_id: item.id,
+            })));
+          }
+          toast.success("โหลดรายการจาก PR สำเร็จ");
+        }
+      } catch {
+        toast.error("ไม่สามารถโหลดข้อมูล PR ได้");
+      }
+    });
+  };
+
+  // Vendor defaults
+  const handleVendorSelect = (selectedVendorId: string) => {
+    setVendorId(selectedVendorId);
+    if (!selectedVendorId) return;
+    startTransition(async () => {
+      try {
+        const defaults = await getVendorDefaults(selectedVendorId);
+        if (defaults.payment_term) setPaymentTerm(defaults.payment_term);
+        if (defaults.wht_type) setWhtType(defaults.wht_type as WhtType);
+      } catch { /* ignore */ }
+    });
+  };
+
+  const handleCurrencyChange = (code: string) => {
+    setCurrencyCode(code);
+    const cur = currencies?.find((c) => c.code === code);
+    if (cur) setExchangeRate(cur.exchange_rate);
+  };
 
   const handleSave = async () => {
     if (!title.trim() || !vendorId) {
@@ -112,8 +211,22 @@ export function POForm({ po, vendors, approvedPRs, departments, costCenters, uni
         payment_term: paymentTerm,
         wht_type: whtType,
         notes: notes || undefined,
-        items,
+        items: items.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          material_code: item.material_code || undefined,
+          delivery_date: item.delivery_date || undefined,
+          pr_line_item_id: item.pr_line_item_id || undefined,
+        })),
         companyId: selectedCompanyId,
+        purchasing_org_id: purchasingOrgId || undefined,
+        currency_code: currencyCode,
+        exchange_rate: exchangeRate,
+        incoterms: incoterms || undefined,
+        delivery_address: deliveryAddress || undefined,
+        gr_required: grRequired,
       };
 
       if (isEditing) {
@@ -179,8 +292,8 @@ export function POForm({ po, vendors, approvedPRs, departments, costCenters, uni
         <CardContent className="grid gap-4 md:grid-cols-2 pt-6">
           {approvedPRs.length > 0 && (
             <div className="space-y-2 md:col-span-2">
-              <Label>อ้างอิง PR (ถ้ามี)</Label>
-              <Select value={prId} onValueChange={setPrId} disabled={!canEdit}>
+              <Label>อ้างอิง PR (เลือกเพื่อดึงรายการอัตโนมัติ)</Label>
+              <Select value={prId} onValueChange={handlePRSelect} disabled={!canEdit}>
                 <SelectTrigger><SelectValue placeholder="เลือก PR (ไม่บังคับ)" /></SelectTrigger>
                 <SelectContent>
                   {approvedPRs.map((pr) => (
@@ -196,7 +309,7 @@ export function POForm({ po, vendors, approvedPRs, departments, costCenters, uni
           </div>
           <div className="space-y-2">
             <Label>ผู้ขาย *</Label>
-            <Select value={vendorId} onValueChange={setVendorId} disabled={!canEdit}>
+            <Select value={vendorId} onValueChange={handleVendorSelect} disabled={!canEdit}>
               <SelectTrigger><SelectValue placeholder="เลือกผู้ขาย" /></SelectTrigger>
               <SelectContent>
                 {vendors.map((v) => (
@@ -254,6 +367,62 @@ export function POForm({ po, vendors, approvedPRs, departments, costCenters, uni
               </SelectContent>
             </Select>
           </div>
+          {purchasingOrgs && purchasingOrgs.length > 0 && (
+            <div className="space-y-2">
+              <Label>หน่วยจัดซื้อ</Label>
+              <Select value={purchasingOrgId} onValueChange={setPurchasingOrgId} disabled={!canEdit}>
+                <SelectTrigger><SelectValue placeholder="เลือกหน่วยจัดซื้อ" /></SelectTrigger>
+                <SelectContent>
+                  {purchasingOrgs.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>{org.name} ({org.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {currencies && currencies.length > 0 && (
+            <div className="space-y-2">
+              <Label>สกุลเงิน</Label>
+              <Select value={currencyCode} onValueChange={handleCurrencyChange} disabled={!canEdit}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {currencies.map((cur) => (
+                    <SelectItem key={cur.code} value={cur.code}>{cur.name} ({cur.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {currencyCode !== "THB" && (
+            <div className="space-y-2">
+              <Label>อัตราแลกเปลี่ยน</Label>
+              <Input type="number" min="0" step="0.000001" value={exchangeRate} onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)} disabled={!canEdit} />
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>Incoterms</Label>
+            <Select value={incoterms} onValueChange={setIncoterms} disabled={!canEdit}>
+              <SelectTrigger><SelectValue placeholder="เลือก Incoterms" /></SelectTrigger>
+              <SelectContent>
+                {INCOTERMS_OPTIONS.map((term) => (
+                  <SelectItem key={term} value={term}>{term}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label>ที่อยู่จัดส่ง</Label>
+            <Textarea value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="ที่อยู่สำหรับจัดส่งสินค้า" rows={2} disabled={!canEdit} />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="gr_required"
+              checked={grRequired}
+              onCheckedChange={(checked) => setGrRequired(checked === true)}
+              disabled={!canEdit}
+            />
+            <Label htmlFor="gr_required" className="cursor-pointer">ต้องการใบรับสินค้า (GR)</Label>
+          </div>
         </CardContent>
       </Card>
 
@@ -267,56 +436,66 @@ export function POForm({ po, vendors, approvedPRs, departments, costCenters, uni
           )}
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>รายละเอียด</TableHead>
-                <TableHead className="w-24">จำนวน</TableHead>
-                <TableHead className="w-28">หน่วย</TableHead>
-                <TableHead className="w-32">ราคาต่อหน่วย</TableHead>
-                <TableHead className="w-32 text-right">จำนวนเงิน</TableHead>
-                {canEdit && <TableHead className="w-12"></TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell>
-                    <Input value={item.description} onChange={(e) => updateItem(index, "description", e.target.value)} disabled={!canEdit} placeholder="รายละเอียด" />
-                  </TableCell>
-                  <TableCell>
-                    <Input type="number" min="0" step="0.01" value={item.quantity} onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)} disabled={!canEdit} />
-                  </TableCell>
-                  <TableCell>
-                    <Select value={item.unit} onValueChange={(v) => updateItem(index, "unit", v)} disabled={!canEdit}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {units.map((u) => (<SelectItem key={u.code} value={u.code}>{u.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input type="number" min="0" step="0.01" value={item.unit_price} onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)} disabled={!canEdit} />
-                  </TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(item.quantity * item.unit_price)}</TableCell>
-                  {canEdit && (
-                    <TableCell>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)} disabled={items.length <= 1}>
-                        <Trash2 className="h-4 w-4 text-nok-error" />
-                      </Button>
-                    </TableCell>
-                  )}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead className="w-28">รหัสสินค้า</TableHead>
+                  <TableHead>รายละเอียด</TableHead>
+                  <TableHead className="w-24">จำนวน</TableHead>
+                  <TableHead className="w-28">หน่วย</TableHead>
+                  <TableHead className="w-32">ราคาต่อหน่วย</TableHead>
+                  <TableHead className="w-32 text-right">จำนวนเงิน</TableHead>
+                  <TableHead className="w-32">วันที่ส่งของ</TableHead>
+                  {canEdit && <TableHead className="w-12"></TableHead>}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {items.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell>
+                      <Input value={item.material_code || ""} onChange={(e) => updateItem(index, "material_code", e.target.value)} disabled={!canEdit} placeholder="รหัส" />
+                    </TableCell>
+                    <TableCell>
+                      <Input value={item.description} onChange={(e) => updateItem(index, "description", e.target.value)} disabled={!canEdit} placeholder="รายละเอียด" />
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" min="0" step="0.01" value={item.quantity} onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)} disabled={!canEdit} />
+                    </TableCell>
+                    <TableCell>
+                      <Select value={item.unit} onValueChange={(v) => updateItem(index, "unit", v)} disabled={!canEdit}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {units.map((u) => (<SelectItem key={u.code} value={u.code}>{u.name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" min="0" step="0.01" value={item.unit_price} onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)} disabled={!canEdit} />
+                    </TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(item.quantity * item.unit_price)}</TableCell>
+                    <TableCell>
+                      <Input type="date" value={item.delivery_date || ""} onChange={(e) => updateItem(index, "delivery_date", e.target.value)} disabled={!canEdit} />
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)} disabled={items.length <= 1}>
+                          <Trash2 className="h-4 w-4 text-nok-error" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
           <div className="flex justify-end p-4 border-t bg-muted/30">
             <div className="w-80 space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">รวมก่อน VAT (Subtotal)</span><span className="font-medium">{formatCurrency(calc.subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">VAT 7%</span><span className="font-medium">{formatCurrency(calc.vatAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">VAT {(vatRate * 100).toFixed(0)}%</span><span className="font-medium">{formatCurrency(calc.vatAmount)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">รวม (Subtotal + VAT)</span><span className="font-medium">{formatCurrency(calc.totalAmount)}</span></div>
               {whtType !== "none" && (
                 <div className="flex justify-between text-nok-error">
