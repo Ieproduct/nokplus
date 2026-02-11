@@ -22,6 +22,24 @@ export type CostCenter = Tables<"cost_centers">;
 
 // Organization types
 export type OrganizationLevel = Tables<"organization_levels">;
+export type PurchasingOrganization = Tables<"purchasing_organizations">;
+
+// Enterprise settings types
+export type CompanySetting = Tables<"company_settings">;
+export type DocumentNumberRange = Tables<"document_number_ranges">;
+export type PaymentTerm = Tables<"payment_terms">;
+export type TaxConfiguration = Tables<"tax_configurations">;
+export type UnitOfMeasure = Tables<"units_of_measure">;
+export type Currency = Tables<"currencies">;
+export type ToleranceGroup = Tables<"tolerance_groups">;
+export type VendorGroup = Tables<"vendor_groups">;
+export type BudgetControl = Tables<"budget_controls">;
+export type FieldControl = Tables<"field_controls">;
+export type ApprovalDelegation = Tables<"approval_delegations">;
+export type MatchingRule = Tables<"matching_rules">;
+export type NotificationSetting = Tables<"notification_settings">;
+export type VendorDocumentRequirement = Tables<"vendor_document_requirements">;
+export type ApChecklistItem = Tables<"ap_checklist_items">;
 
 // Approval flow types
 export type ApprovalFlow = Tables<"approval_flows">;

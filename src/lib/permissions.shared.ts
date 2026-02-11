@@ -10,6 +10,8 @@ export const PERMISSION_KEYS = [
   "organization.view", "settings.organization",
   "settings.company", "settings.departments", "settings.members",
   "settings.permissions", "settings.flows", "settings.system",
+  "settings.documents", "settings.finance", "settings.vendors_config",
+  "settings.delegation", "settings.notifications", "audit.view",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -47,6 +49,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "settings.permissions": "จัดการสิทธิ์",
   "settings.flows": "ตั้งค่าระบบอนุมัติ",
   "settings.system": "ตั้งค่าระบบ",
+  "settings.documents": "ตั้งค่าเอกสาร",
+  "settings.finance": "ตั้งค่าการเงิน",
+  "settings.vendors_config": "ตั้งค่าผู้ขาย",
+  "settings.delegation": "มอบอำนาจ",
+  "settings.notifications": "ตั้งค่าการแจ้งเตือน",
+  "audit.view": "ดู Audit Log",
 };
 
 export const PERMISSION_GROUPS: { label: string; keys: PermissionKey[] }[] = [
@@ -57,5 +65,6 @@ export const PERMISSION_GROUPS: { label: string; keys: PermissionKey[] }[] = [
   { label: "ผู้ขาย", keys: ["vendor.view", "vendor.create", "vendor.edit"] },
   { label: "การอนุมัติ", keys: ["approval.view", "approval.process"] },
   { label: "องค์กร", keys: ["member.view", "member.manage", "department.view", "department.manage", "organization.view"] },
-  { label: "ตั้งค่า", keys: ["settings.company", "settings.departments", "settings.members", "settings.permissions", "settings.flows", "settings.system", "settings.organization"] },
+  { label: "ตั้งค่า", keys: ["settings.company", "settings.departments", "settings.members", "settings.permissions", "settings.flows", "settings.system", "settings.organization", "settings.documents", "settings.finance", "settings.vendors_config", "settings.delegation", "settings.notifications"] },
+  { label: "ตรวจสอบ", keys: ["audit.view"] },
 ];

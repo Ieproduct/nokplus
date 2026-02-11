@@ -9,17 +9,12 @@ import type { PermissionKey } from "@/lib/permissions.shared";
 import {
   LayoutDashboard,
   Users,
-  UserCog,
-  Building2,
   Network,
   FileText,
   ShoppingCart,
   Receipt,
-  Workflow,
-  FileCog,
   CheckSquare,
-  Building,
-  Shield,
+  Settings,
   BarChart3,
   LogOut,
   ChevronDown,
@@ -52,8 +47,6 @@ const navGroups: NavGroup[] = [
     label: "การบริหารจัดการองค์กร",
     items: [
       { href: "/dashboard/vendors", label: "ผู้ขาย", icon: Users, permission: "vendor.view" },
-      { href: "/dashboard/settings?tab=members", label: "สมาชิก", icon: UserCog, permission: "member.view" },
-      { href: "/dashboard/settings?tab=departments", label: "แผนก", icon: Building2, permission: "department.view" },
       { href: "/dashboard/organization", label: "โครงสร้างองค์กร", icon: Network, permission: "organization.view" },
     ],
   },
@@ -66,23 +59,15 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "การตั้งค่าเอกสาร",
-    items: [
-      { href: "/dashboard/settings?tab=approvals", label: "ระบบอนุมัติ", icon: Workflow, permission: "settings.flows" },
-      { href: "/dashboard/settings?tab=system", label: "ตั้งค่าเอกสาร", icon: FileCog, permission: "settings.system" },
-    ],
-  },
-  {
     label: "อนุมัติรายการ",
     items: [
       { href: "/dashboard/approvals", label: "รายการอนุมัติ", icon: CheckSquare, permission: "approval.view" },
     ],
   },
   {
-    label: "การตั้งค่าระบบ",
+    label: "ระบบ",
     items: [
-      { href: "/dashboard/settings?tab=company", label: "ข้อมูลบริษัท", icon: Building, permission: "settings.company" },
-      { href: "/dashboard/settings?tab=permissions", label: "สิทธิ์ผู้ใช้งาน", icon: Shield, permission: "settings.permissions" },
+      { href: "/dashboard/settings", label: "ตั้งค่าระบบ", icon: Settings, permission: "settings.company" },
       { href: "/dashboard/reports", label: "รายงาน", icon: BarChart3, permission: "reports.view" },
     ],
   },
@@ -116,10 +101,6 @@ function SidebarGroup({ group }: { group: NavGroup }) {
   const [isOpen, setIsOpen] = useState(group.defaultOpen ?? true);
 
   const isGroupActive = group.items.some((item) => {
-    if (item.href.includes("?")) {
-      const base = item.href.split("?")[0];
-      return pathname === base || pathname.startsWith(base + "/");
-    }
     return item.href === "/dashboard"
       ? pathname === "/dashboard"
       : pathname.startsWith(item.href);
@@ -162,12 +143,9 @@ function SidebarGroup({ group }: { group: NavGroup }) {
       {isOpen && (
         <div className="mt-0.5 space-y-0.5 pl-0">
           {visibleItems.map((item) => {
-            const itemBase = item.href.split("?")[0];
-            const isActive = item.href.includes("?tab=")
-              ? pathname === itemBase && item.href.includes(`tab=${new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("tab")}`)
-              : item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(itemBase) && itemBase !== "/dashboard";
+            const isActive = item.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(item.href) && item.href !== "/dashboard";
             return (
               <FilteredNavItem key={item.href} item={item} isActive={isActive} />
             );

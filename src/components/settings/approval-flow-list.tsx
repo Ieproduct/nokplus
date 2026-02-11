@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createApprovalFlow, deleteApprovalFlow, updateApprovalFlow } from "@/lib/actions/flow";
+import { createApprovalFlow, deleteApprovalFlow, updateApprovalFlow, type ApprovalTier } from "@/lib/actions/flow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,11 +15,13 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Pencil, Trash2, Star } from "lucide-react";
 import { toast } from "sonner";
+import { ApprovalTierManager } from "./approval-tier-manager";
 
 interface Flow {
   id: string;
@@ -28,6 +30,18 @@ interface Flow {
   is_default: boolean;
   is_active: boolean;
   auto_escalate?: boolean;
+  min_amount?: number | null;
+  max_amount?: number | null;
+}
+
+interface Member {
+  id: string;
+  user_id: string;
+  role: string;
+  profiles: {
+    full_name: string;
+    email: string;
+  } | null;
 }
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -36,11 +50,22 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   ap: "ใบสำคัญจ่าย (AP)",
 };
 
-export function ApprovalFlowList({ flows }: { flows: Flow[] }) {
+export function ApprovalFlowList({
+  flows,
+  tiers = [],
+  members = [],
+}: {
+  flows: Flow[];
+  tiers?: ApprovalTier[];
+  members?: Member[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [autoEscalate, setAutoEscalate] = useState(false);
+
+  // กรอง flows ที่ไม่ใช่ tier (ไม่มี min_amount)
+  const nonTierFlows = flows.filter((f) => f.min_amount == null);
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -84,70 +109,83 @@ export function ApprovalFlowList({ flows }: { flows: Flow[] }) {
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-medium">ลำดับอนุมัติ ({flows.length})</h3>
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> สร้าง Flow ใหม่
-          </Button>
-        </div>
+        <Tabs defaultValue="tiers">
+          <TabsList className="mb-4">
+            <TabsTrigger value="tiers">วงเงินอนุมัติ</TabsTrigger>
+            <TabsTrigger value="advanced">Flow ขั้นสูง</TabsTrigger>
+          </TabsList>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ชื่อ</TableHead>
-              <TableHead>ประเภทเอกสาร</TableHead>
-              <TableHead>สถานะ</TableHead>
-              <TableHead className="w-32"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {flows.map((flow) => (
-              <TableRow key={flow.id}>
-                <TableCell className="font-medium">
-                  {flow.name}
-                  {flow.is_default && (
-                    <Badge variant="secondary" className="ml-2">ค่าเริ่มต้น</Badge>
-                  )}
-                </TableCell>
-                <TableCell>{DOC_TYPE_LABELS[flow.document_type] || flow.document_type}</TableCell>
-                <TableCell>
-                  <div className="flex gap-1 flex-wrap">
-                    <Badge variant={flow.is_active ? "default" : "secondary"}>
-                      {flow.is_active ? "ใช้งาน" : "ปิด"}
-                    </Badge>
-                    {flow.auto_escalate && (
-                      <Badge variant="outline" className="text-orange-600 border-orange-300">
-                        Auto-Escalate
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {!flow.is_default && (
-                      <Button variant="ghost" size="icon" title="ตั้งเป็นค่าเริ่มต้น" onClick={() => handleSetDefault(flow.id)}>
-                        <Star className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="icon" onClick={() => router.push(`/dashboard/settings/approvals/${flow.id}/builder`)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(flow.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {flows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  ยังไม่มี Flow อนุมัติ
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+          <TabsContent value="tiers">
+            <ApprovalTierManager tiers={tiers} members={members} />
+          </TabsContent>
+
+          <TabsContent value="advanced">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-medium">ลำดับอนุมัติ ({nonTierFlows.length})</h3>
+              <Button size="sm" onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" /> สร้าง Flow ใหม่
+              </Button>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ชื่อ</TableHead>
+                  <TableHead>ประเภทเอกสาร</TableHead>
+                  <TableHead>สถานะ</TableHead>
+                  <TableHead className="w-32"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {nonTierFlows.map((flow) => (
+                  <TableRow key={flow.id}>
+                    <TableCell className="font-medium">
+                      {flow.name}
+                      {flow.is_default && (
+                        <Badge variant="secondary" className="ml-2">ค่าเริ่มต้น</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>{DOC_TYPE_LABELS[flow.document_type] || flow.document_type}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        <Badge variant={flow.is_active ? "default" : "secondary"}>
+                          {flow.is_active ? "ใช้งาน" : "ปิด"}
+                        </Badge>
+                        {flow.auto_escalate && (
+                          <Badge variant="outline" className="text-orange-600 border-orange-300">
+                            Auto-Escalate
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {!flow.is_default && (
+                          <Button variant="ghost" size="icon" title="ตั้งเป็นค่าเริ่มต้น" onClick={() => handleSetDefault(flow.id)}>
+                            <Star className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => router.push(`/dashboard/settings/approvals/${flow.id}/builder`)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(flow.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {nonTierFlows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                      ยังไม่มี Flow อนุมัติ
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
+        </Tabs>
 
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setAutoEscalate(false); }}>
           <DialogContent>
